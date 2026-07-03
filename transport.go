@@ -13,6 +13,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -121,10 +122,10 @@ func (t *transport) Do(ctx context.Context, req *operations.Request, out interfa
 		}
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			if out != nil && len(respBody) > 0 {
-				return json.Unmarshal(respBody, out)
+			if out == nil {
+				return nil
 			}
-			return nil
+			return decodeJSONObject(resp.StatusCode, respBody, requestID(resp), out)
 		}
 
 		// Single token refresh on 401 for any authenticated call.
@@ -257,6 +258,11 @@ func buildMultipart(req *operations.Request) ([]byte, string, error) {
 	return buf.Bytes(), w.FormDataContentType(), nil
 }
 
+// mediaTypePattern accepts a bare RFC 6838 type/subtype (token characters
+// only). It deliberately rejects parameters, whitespace and control bytes so a
+// caller-supplied content type can never inject extra MIME header lines.
+var mediaTypePattern = regexp.MustCompile(`^[0-9A-Za-z!#$&^_.+-]+/[0-9A-Za-z!#$&^_.+-]+$`)
+
 func writeBinaryPart(w *multipart.Writer, field string, b *models.BinaryInput) error {
 	if b == nil {
 		return nil
@@ -265,9 +271,15 @@ func writeBinaryPart(w *multipart.Writer, field string, b *models.BinaryInput) e
 	if err != nil {
 		return err
 	}
+	ct := b.ContentTypeFor(field, data)
+	if !mediaTypePattern.MatchString(ct) {
+		return validationErrorf("invalid content type %q for multipart field %s", ct, field)
+	}
 	h := textproto.MIMEHeader{}
+	// The %q verb escapes quotes, CR and LF, so a hostile filename cannot
+	// break out of the Content-Disposition header.
 	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name=%q; filename=%q`, field, b.Filename()))
-	h.Set("Content-Type", b.ContentTypeFor(field, data))
+	h.Set("Content-Type", ct)
 	pw, err := w.CreatePart(h)
 	if err != nil {
 		return err
@@ -278,6 +290,20 @@ func writeBinaryPart(w *multipart.Writer, field string, b *models.BinaryInput) e
 
 func connectionError(err error) error {
 	return &ConnectionError{smileIDError: &smileIDError{Message: err.Error()}, Err: err}
+}
+
+// decodeJSONObject decodes a success (2xx) body into out. The body must be a
+// JSON object; anything else (HTML, an array, a bare string, null, an empty
+// body, or a shape mismatch) returns an *UnexpectedResponseError.
+func decodeJSONObject(status int, body []byte, requestID string, out interface{}) error {
+	var probe map[string]json.RawMessage
+	if json.Unmarshal(body, &probe) != nil || probe == nil {
+		return unexpectedResponseError(status, body, requestID)
+	}
+	if err := json.Unmarshal(body, out); err != nil {
+		return unexpectedResponseError(status, body, requestID)
+	}
+	return nil
 }
 
 func isRetryableStatus(status int) bool {
