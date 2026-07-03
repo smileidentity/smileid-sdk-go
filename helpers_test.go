@@ -37,12 +37,19 @@ type captured struct {
 	body        []byte
 }
 
-// testClient builds a client pointed at the given handler.
+// testClient builds a client pointed at the given handler. The server is TLS
+// so every test exercises the https-only base URL rule; the server's client
+// (which trusts the test certificate) is injected via Config.HTTPClient.
 func testClient(t *testing.T, handler http.HandlerFunc) *Client {
 	t.Helper()
-	srv := httptest.NewServer(handler)
+	srv := httptest.NewTLSServer(handler)
 	t.Cleanup(srv.Close)
-	c, err := NewClient(Config{PartnerID: "1234", APIKey: "test-key", BaseURL: srv.URL})
+	c, err := NewClient(Config{
+		PartnerID:  "1234",
+		APIKey:     "test-key",
+		BaseURL:    srv.URL,
+		HTTPClient: srv.Client(),
+	})
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}

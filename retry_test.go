@@ -133,8 +133,10 @@ func TestConnectionErrorRetriedForIdempotent(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, `{"bank_codes":[{"code":"044","country":"NG","name":"Access Bank"}]}`)
 	})
-	// Wrap the client's transport so the first attempt fails to connect.
-	c.transport.http = &http.Client{Transport: &flakyRoundTripper{remaining: 1, base: http.DefaultTransport}}
+	// Wrap the client's transport so the first attempt fails to connect. The
+	// wrapped base is the TLS test server's own transport, which trusts its
+	// certificate.
+	c.transport.http = &http.Client{Transport: &flakyRoundTripper{remaining: 1, base: c.transport.http.Transport}}
 
 	resp, err := c.Services.BankCodes(context.Background(), BankCodesParams{})
 	if err != nil {
