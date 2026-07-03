@@ -11,6 +11,13 @@ linters:
     - ineffassign
     - staticcheck
     - unused
+  exclusions:
+    rules:
+      # Test HTTP handlers write fixed response bodies; the write error is not
+      # meaningful in an httptest server.
+      - path: _test\.go
+        linters:
+          - errcheck
 
 formatters:
   enable:

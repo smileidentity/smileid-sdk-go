@@ -22,3 +22,6 @@ go.work.sum
 # Local environment
 .env
 .env.*
+
+# Locally installed dev tools (e.g. golangci-lint)
+/.tools/
