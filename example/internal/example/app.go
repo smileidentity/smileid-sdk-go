@@ -50,7 +50,6 @@ type replayOutput struct {
 type appConfig struct {
 	partnerID          string
 	apiKey             string
-	partnerSecret      string
 	baseURL            string
 	callbackURL        string
 	timeout            time.Duration
@@ -107,12 +106,11 @@ func Run(ctx context.Context, args []string, getenv func(string) string, stdout,
 
 func parseGlobalFlags(args []string, getenv func(string) string, stderr io.Writer) (appConfig, []string, error) {
 	cfg := appConfig{
-		partnerID:     getenv("SMILE_PARTNER_ID"),
-		apiKey:        getenv("SMILE_API_KEY"),
-		partnerSecret: getenv("SMILE_PARTNER_SECRET"),
-		baseURL:       getenv("SMILE_BASE_URL"),
-		callbackURL:   getenv("SMILE_CALLBACK_URL"),
-		timeout:       30 * time.Second,
+		partnerID:   getenv("SMILE_PARTNER_ID"),
+		apiKey:      getenv("SMILE_API_KEY"),
+		baseURL:     getenv("SMILE_BASE_URL"),
+		callbackURL: getenv("SMILE_CALLBACK_URL"),
+		timeout:     30 * time.Second,
 	}
 	if raw := getenv("SMILE_TIMEOUT"); raw != "" {
 		timeout, err := time.ParseDuration(raw)
@@ -127,7 +125,6 @@ func parseGlobalFlags(args []string, getenv func(string) string, stderr io.Write
 	flags.SetOutput(stderr)
 	flags.StringVar(&cfg.partnerID, "partner-id", cfg.partnerID, "Smile ID partner ID")
 	flags.StringVar(&cfg.apiKey, "api-key", cfg.apiKey, "Smile ID API key")
-	flags.StringVar(&cfg.partnerSecret, "partner-secret", cfg.partnerSecret, "optional Smile ID HMAC partner secret")
 	flags.StringVar(&cfg.baseURL, "base-url", cfg.baseURL, "optional Smile ID API base URL override")
 	flags.StringVar(&cfg.callbackURL, "callback-url", cfg.callbackURL, "default callback URL for verification commands")
 	flags.DurationVar(&cfg.timeout, "timeout", cfg.timeout, "per-request timeout")
@@ -155,7 +152,6 @@ func newClient(cfg appConfig) (*smileid.Client, error) {
 	sdkConfig := smileid.Config{
 		PartnerID:          cfg.partnerID,
 		APIKey:             cfg.apiKey,
-		PartnerSecret:      cfg.partnerSecret,
 		BaseURL:            cfg.baseURL,
 		DefaultCallbackURL: cfg.callbackURL,
 		Timeout:            cfg.timeout,
@@ -341,7 +337,7 @@ func printUsage(w io.Writer) {
   smileid-example-go [global flags] status --job-id job_...
   smileid-example-go [global flags] replay --job-id job_... --callback-url https://example.com/webhook
 
-Global flags can also be set with SMILE_PARTNER_ID, SMILE_API_KEY, SMILE_PARTNER_SECRET, SMILE_BASE_URL, SMILE_CALLBACK_URL and SMILE_TIMEOUT.`)
+Global flags can also be set with SMILE_PARTNER_ID, SMILE_API_KEY, SMILE_BASE_URL, SMILE_CALLBACK_URL and SMILE_TIMEOUT.`)
 }
 
 type cliUsageError string
