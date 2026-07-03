@@ -1,0 +1,29 @@
+rules:
+  - id: go-insecure-tls-outside-test-helper
+    message: InsecureSkipVerify must stay confined to the documented local testbench path.
+    severity: ERROR
+    languages:
+      - go
+    patterns:
+      - pattern: "InsecureSkipVerify: true"
+      - pattern-not-inside: |
+          if cfg.insecureTLSForTest {
+            ...
+          }
+    metadata:
+      category: security
+      confidence: HIGH
+  - id: go-hardcoded-smile-credentials
+    message: Do not hard-code Smile ID credentials; read them from environment variables or a secret manager.
+    severity: ERROR
+    languages:
+      - go
+    patterns:
+      - pattern-either:
+          - pattern: |
+              smileid.Config{..., APIKey: "...", ...}
+          - pattern: |
+              smileid.Config{..., PartnerSecret: "...", ...}
+    metadata:
+      category: security
+      confidence: MEDIUM
