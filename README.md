@@ -48,6 +48,8 @@ client, err := smileid.NewClient(smileid.Config{
 })
 ```
 
+`Environment` accepts only `smileid.Sandbox` or `smileid.Production` (or the empty zero value, which means sandbox); anything else fails at construction.
+
 `Config` also accepts:
 
 - `DefaultCallbackURL` — used when a call omits a callback URL.
@@ -58,6 +60,10 @@ client, err := smileid.NewClient(smileid.Config{
 - `PartnerSecret` — enables HMAC request signing (see below).
 
 Every method takes a `context.Context` as its first argument and accepts optional per-request options, such as `smileid.WithTimeout` and `smileid.WithCallbackURL`.
+
+### URLs must be https
+
+`BaseURL` must be an absolute `https` URL with no query or fragment; there is no insecure override. Callback URLs — `DefaultCallbackURL`, the `CallbackURL` params field, and `WithCallbackURL` — must also be absolute `https` URLs. An insecure URL returns a `*ValidationError` before any request is sent.
 
 ## Building consent and user details
 
@@ -298,6 +304,7 @@ The error types are:
 | `RateLimitError` | HTTP 429 |
 | `APIError` | HTTP 5xx |
 | `Error` (base) | any other unmapped status |
+| `UnexpectedResponseError` | a success (2xx) response whose body is not a JSON object |
 | `ConnectionError` | network failure, timeout or context cancellation |
 | `ValidationError` | client-side validation, before any request is sent |
 | `TimeoutError` | `WaitUntilComplete` exceeding its timeout |

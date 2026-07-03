@@ -2,6 +2,7 @@ package smileid
 
 import (
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -38,9 +39,11 @@ type Config struct {
 	Environment Environment
 	// PartnerSecret enables HMAC request signing when set.
 	PartnerSecret string
-	// DefaultCallbackURL is used when a call omits a callback URL.
+	// DefaultCallbackURL is used when a call omits a callback URL. It must be
+	// an absolute https URL.
 	DefaultCallbackURL string
-	// BaseURL overrides the environment-derived base URL when set.
+	// BaseURL overrides the environment-derived base URL when set. It must be
+	// an absolute https URL with no query or fragment.
 	BaseURL string
 	// Timeout is the per-request total timeout. Defaults to 30s.
 	Timeout time.Duration
@@ -76,8 +79,12 @@ func (c Config) normalize() (config, error) {
 	}
 
 	env := c.Environment
-	if env == "" {
+	switch env {
+	case "":
 		env = Sandbox
+	case Sandbox, Production:
+	default:
+		return config{}, validationErrorf("environment must be %q or %q", Sandbox, Production)
 	}
 
 	base := c.BaseURL
@@ -88,7 +95,16 @@ func (c Config) normalize() (config, error) {
 			base = sandboxBaseURL
 		}
 	}
+	if err := validateBaseURL(base); err != nil {
+		return config{}, err
+	}
 	base = strings.TrimRight(base, "/")
+
+	if c.DefaultCallbackURL != "" {
+		if err := validateHTTPSURL("default_callback_url", c.DefaultCallbackURL); err != nil {
+			return config{}, err
+		}
+	}
 
 	timeout := c.Timeout
 	if timeout == 0 {
@@ -112,4 +128,26 @@ func (c Config) normalize() (config, error) {
 		timeout:            timeout,
 		maxRetries:         retries,
 	}, nil
+}
+
+// validateBaseURL requires an absolute https URL with no query or fragment.
+// There is deliberately no insecure escape hatch.
+func validateBaseURL(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "https" || u.Host == "" {
+		return validationErrorf("base_url must be an absolute https URL")
+	}
+	if u.RawQuery != "" || u.Fragment != "" {
+		return validationErrorf("base_url must not contain a query or fragment")
+	}
+	return nil
+}
+
+// validateHTTPSURL requires an absolute https URL. Used for callback URLs.
+func validateHTTPSURL(name, raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "https" || u.Host == "" {
+		return validationErrorf("%s must be an absolute https URL", name)
+	}
+	return nil
 }

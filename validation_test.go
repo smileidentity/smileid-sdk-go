@@ -6,11 +6,12 @@ import (
 	"testing"
 )
 
-// failingClient points at a server that would fail the test if any request
-// reaches it, so validation errors are proven to fire before sending.
+// failingClient points at an unresolvable host so any request that is
+// actually sent fails the test with a non-validation error, proving
+// validation fires before sending.
 func failingClient(t *testing.T) *Client {
 	t.Helper()
-	c, err := NewClient(Config{PartnerID: "1234", APIKey: "test-key", BaseURL: "http://127.0.0.1:0"})
+	c, err := NewClient(Config{PartnerID: "1234", APIKey: "test-key", BaseURL: "https://invalid.invalid"})
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}

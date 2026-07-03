@@ -82,6 +82,22 @@ type ConnectionError struct {
 // Unwrap returns the underlying transport error.
 func (e *ConnectionError) Unwrap() error { return e.Err }
 
+// UnexpectedResponseError is raised when a success (2xx) response carries a
+// body that is not a JSON object, for example an HTML error page from an
+// intermediary. StatusCode, RawBody and RequestID are populated.
+type UnexpectedResponseError struct{ *smileIDError }
+
+// unexpectedResponseError builds an UnexpectedResponseError for a malformed
+// success body.
+func unexpectedResponseError(status int, body []byte, requestID string) error {
+	return &UnexpectedResponseError{&smileIDError{
+		StatusCode: status,
+		Message:    "response body is not a JSON object",
+		RequestID:  requestID,
+		RawBody:    string(body),
+	}}
+}
+
 // ValidationError is raised for client-side validation failures, before any
 // request is sent.
 type ValidationError struct{ *smileIDError }

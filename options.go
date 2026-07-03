@@ -45,17 +45,24 @@ func (c *Client) withTimeout(ctx context.Context, ro *requestOptions) (context.C
 }
 
 // resolveCallback applies, in order of precedence, a per-request override, the
-// value already in params, then the client default.
-func (c *Client) resolveCallback(explicit *string, ro *requestOptions) *string {
-	if ro.callbackURL != nil {
-		return ro.callbackURL
-	}
-	if explicit != nil {
-		return explicit
-	}
-	if c.cfg.defaultCallbackURL != "" {
+// value already in params, then the client default. The resolved value must be
+// an absolute https URL; anything else returns a *ValidationError before any
+// request is made.
+func (c *Client) resolveCallback(explicit *string, ro *requestOptions) (*string, error) {
+	var cb *string
+	switch {
+	case ro.callbackURL != nil:
+		cb = ro.callbackURL
+	case explicit != nil:
+		cb = explicit
+	case c.cfg.defaultCallbackURL != "":
 		d := c.cfg.defaultCallbackURL
-		return &d
+		cb = &d
 	}
-	return nil
+	if cb != nil {
+		if err := validateHTTPSURL("callback_url", *cb); err != nil {
+			return nil, err
+		}
+	}
+	return cb, nil
 }
