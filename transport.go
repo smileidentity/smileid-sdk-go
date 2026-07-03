@@ -99,8 +99,19 @@ func (t *transport) Do(ctx context.Context, req *operations.Request, out interfa
 			return connectionError(err)
 		}
 
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, readErr := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
+		if readErr != nil {
+			// A connection dropped mid-body is a transport failure, not a
+			// malformed response: surface it as a retryable ConnectionError.
+			if req.Idempotent && attempt < t.cfg.maxRetries && ctx.Err() == nil {
+				if berr := sleepBackoff(ctx, attempt, 0); berr != nil {
+					return connectionError(berr)
+				}
+				continue
+			}
+			return connectionError(readErr)
+		}
 
 		if resp.StatusCode == http.StatusNotFound && req.NotFoundReturnsBody {
 			if out != nil {

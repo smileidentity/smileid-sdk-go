@@ -144,3 +144,63 @@ func TestConnectionErrorRetriedForIdempotent(t *testing.T) {
 		t.Errorf("bank_codes = %+v", resp.BankCodes)
 	}
 }
+
+// writeTruncatedBody declares a Content-Length larger than what it writes,
+// then returns: the server closes the connection early and the client's body
+// read fails mid-stream.
+func writeTruncatedBody(w http.ResponseWriter, status int) {
+	w.Header().Set("Content-Length", "500")
+	w.WriteHeader(status)
+	fmt.Fprint(w, `{"status":`)
+}
+
+func TestTruncatedBodyRetriedForIdempotent(t *testing.T) {
+	var opCalls int32
+	c := testClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v3/token" {
+			serveToken(w)
+			return
+		}
+		if atomic.AddInt32(&opCalls, 1) == 1 {
+			writeTruncatedBody(w, http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, `{"status":"complete","job_id":"job_x"}`)
+	})
+
+	js, err := c.Verifications.Retrieve(context.Background(), "job_x")
+	if err != nil {
+		t.Fatalf("Retrieve after one truncated body: %v", err)
+	}
+	if js.Status != "complete" {
+		t.Errorf("status = %q", js.Status)
+	}
+	if got := atomic.LoadInt32(&opCalls); got != 2 {
+		t.Errorf("op called %d times, want 2 (retried once)", got)
+	}
+}
+
+func TestTruncatedBodyIsConnectionErrorForEntryPost(t *testing.T) {
+	var opCalls int32
+	c := testClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v3/token" {
+			serveToken(w)
+			return
+		}
+		atomic.AddInt32(&opCalls, 1)
+		writeTruncatedBody(w, http.StatusAccepted)
+	})
+
+	_, err := c.EnhancedKYC.Verify(context.Background(), EnhancedKYCParams{
+		Country: "NG", IDType: "NIN", IDNumber: "12345678901",
+		UserDetails: validUserDetails(), Consent: validConsent(),
+	})
+	var connErr *ConnectionError
+	if !errors.As(err, &connErr) {
+		t.Fatalf("err = %T %v, want *ConnectionError", err, err)
+	}
+	if got := atomic.LoadInt32(&opCalls); got != 1 {
+		t.Errorf("entry POST was retried after a truncated body: op called %d times, want 1", got)
+	}
+}
