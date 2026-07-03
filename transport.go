@@ -3,9 +3,6 @@ package smileid
 import (
 	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,8 +28,8 @@ const (
 )
 
 // transport is the single HTTP layer. It builds the URL, attaches auth and
-// telemetry headers, optionally signs the request, serializes the body,
-// applies the retry policy, and turns failures into typed errors.
+// telemetry headers, serializes the body, applies the retry policy, and turns
+// failures into typed errors.
 type transport struct {
 	cfg  config
 	http *http.Client
@@ -184,16 +181,6 @@ func (t *transport) newHTTPRequest(ctx context.Context, req *operations.Request,
 	}
 	if req.UserIDHeader != "" {
 		hr.Header.Set("User-ID", req.UserIDHeader)
-	}
-
-	// Optional HMAC signing runs last: it needs the final serialized body.
-	if t.cfg.partnerSecret != "" {
-		ts := time.Now().UTC().Format(timestampLayout)
-		mac := hmac.New(sha256.New, []byte(t.cfg.partnerSecret))
-		mac.Write([]byte(ts))
-		mac.Write(body)
-		hr.Header.Set("SmileID-Timestamp", ts)
-		hr.Header.Set("SmileID-Request-Signature", hex.EncodeToString(mac.Sum(nil)))
 	}
 
 	return hr, nil

@@ -37,8 +37,6 @@ type Config struct {
 	APIKey string
 	// Environment selects the base URL. Defaults to Sandbox.
 	Environment Environment
-	// PartnerSecret enables HMAC request signing when set.
-	PartnerSecret string
 	// DefaultCallbackURL is used when a call omits a callback URL. It must be
 	// an absolute https URL.
 	DefaultCallbackURL string
@@ -60,7 +58,6 @@ type Config struct {
 type config struct {
 	partnerID          string
 	apiKey             string
-	partnerSecret      string
 	defaultCallbackURL string
 	baseURL            string
 	timeout            time.Duration
@@ -122,7 +119,6 @@ func (c Config) normalize() (config, error) {
 	return config{
 		partnerID:          c.PartnerID,
 		apiKey:             c.APIKey,
-		partnerSecret:      c.PartnerSecret,
 		defaultCallbackURL: c.DefaultCallbackURL,
 		baseURL:            base,
 		timeout:            timeout,
