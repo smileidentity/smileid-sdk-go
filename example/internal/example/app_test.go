@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -32,17 +33,17 @@ func TestServicesCommandListsReferenceData(t *testing.T) {
 	if got.Country != "NG" {
 		t.Fatalf("Country = %q, want NG", got.Country)
 	}
-	if got.BankCodes[0].Code != "001" {
-		t.Fatalf("BankCodes[0].Code = %q, want 001", got.BankCodes[0].Code)
+	if len(got.BankCodes) == 0 || got.BankCodes[0].Code != "001" {
+		t.Fatalf("BankCodes = %+v, want first code 001", got.BankCodes)
 	}
-	if got.IDTypes[0].Type != "NIN" {
-		t.Fatalf("IDTypes[0].Type = %q, want NIN", got.IDTypes[0].Type)
+	if len(got.IDTypes) == 0 || got.IDTypes[0].Type != "NIN" {
+		t.Fatalf("IDTypes = %+v, want first type NIN", got.IDTypes)
 	}
-	if got.Documents[0].Country.Code != "NG" {
-		t.Fatalf("Documents[0].Country.Code = %q, want NG", got.Documents[0].Country.Code)
+	if len(got.Documents) == 0 || got.Documents[0].Country.Code != "NG" {
+		t.Fatalf("Documents = %+v, want first country NG", got.Documents)
 	}
-	if server.tokenRequests != 0 {
-		t.Fatalf("services command made %d token requests, want 0", server.tokenRequests)
+	if server.tokenRequestCount() != 0 {
+		t.Fatalf("services command made %d token requests, want 0", server.tokenRequestCount())
 	}
 }
 
@@ -73,15 +74,16 @@ func TestEnhancedKYCCommandSubmitsVerification(t *testing.T) {
 	if got.JobID != "job_enhanced_123" || !got.Accepted {
 		t.Fatalf("accepted output = %+v, want accepted job_enhanced_123", got)
 	}
-	if server.tokenRequests != 1 {
-		t.Fatalf("tokenRequests = %d, want 1", server.tokenRequests)
+	if server.tokenRequestCount() != 1 {
+		t.Fatalf("tokenRequests = %d, want 1", server.tokenRequestCount())
 	}
-	assertMultipartField(t, server.enhancedKYCForm, "country", "NG")
-	assertMultipartField(t, server.enhancedKYCForm, "id_type", "NIN")
-	assertMultipartField(t, server.enhancedKYCForm, "id_number", "12345678901")
-	assertMultipartField(t, server.enhancedKYCForm, "callback_url", "https://example.com/smile-callback")
-	assertMultipartContains(t, server.enhancedKYCForm, "user_details", `"given_names":"Amina"`)
-	assertMultipartContains(t, server.enhancedKYCForm, "consent", `"granted":true`)
+	form := server.enhancedForm()
+	assertMultipartField(t, form, "country", "NG")
+	assertMultipartField(t, form, "id_type", "NIN")
+	assertMultipartField(t, form, "id_number", "12345678901")
+	assertMultipartField(t, form, "callback_url", "https://example.com/smile-callback")
+	assertMultipartContains(t, form, "user_details", `"given_names":"Amina"`)
+	assertMultipartContains(t, form, "consent", `"granted":true`)
 }
 
 func TestStatusCommandRetrievesJob(t *testing.T) {
@@ -127,8 +129,8 @@ func TestReplayCommandRequestsCallbackReplay(t *testing.T) {
 	if got.Status != "success" || got.JobID != "job_enhanced_123" {
 		t.Fatalf("replay output = %+v, want success job_enhanced_123", got)
 	}
-	if server.replayCallbackURL != "https://example.com/replay-callback" {
-		t.Fatalf("replay callback URL = %q", server.replayCallbackURL)
+	if server.replayCallback() != "https://example.com/replay-callback" {
+		t.Fatalf("replay callback URL = %q", server.replayCallback())
 	}
 }
 
@@ -156,9 +158,50 @@ func TestHelpDoesNotRequireCredentials(t *testing.T) {
 
 type fakeSmileServer struct {
 	*httptest.Server
+	mu                sync.Mutex
 	tokenRequests     int
 	enhancedKYCForm   map[string]string
 	replayCallbackURL string
+}
+
+func (s *fakeSmileServer) incrementTokenRequests() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.tokenRequests++
+}
+
+func (s *fakeSmileServer) tokenRequestCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.tokenRequests
+}
+
+func (s *fakeSmileServer) setEnhancedForm(form map[string]string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.enhancedKYCForm = form
+}
+
+func (s *fakeSmileServer) enhancedForm() map[string]string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	form := make(map[string]string, len(s.enhancedKYCForm))
+	for key, value := range s.enhancedKYCForm {
+		form[key] = value
+	}
+	return form
+}
+
+func (s *fakeSmileServer) setReplayCallback(callbackURL string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.replayCallbackURL = callbackURL
+}
+
+func (s *fakeSmileServer) replayCallback() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.replayCallbackURL
 }
 
 func newFakeSmileServer(t *testing.T) *fakeSmileServer {
@@ -166,7 +209,7 @@ func newFakeSmileServer(t *testing.T) *fakeSmileServer {
 	fake := &fakeSmileServer{}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v3/token", func(w http.ResponseWriter, r *http.Request) {
-		fake.tokenRequests++
+		fake.incrementTokenRequests()
 		if r.Header.Get("smileid-partner-id") != "12345" {
 			t.Errorf("smileid-partner-id = %q", r.Header.Get("smileid-partner-id"))
 		}
@@ -202,7 +245,7 @@ func newFakeSmileServer(t *testing.T) *fakeSmileServer {
 		if err != nil {
 			t.Errorf("parse multipart: %v", err)
 		}
-		fake.enhancedKYCForm = form
+		fake.setEnhancedForm(form)
 		writeJSON(t, w, http.StatusAccepted, map[string]string{
 			"status": "Accepted", "message": "submitted", "job_id": "job_enhanced_123", "user_id": "user_123",
 		})
@@ -221,7 +264,7 @@ func newFakeSmileServer(t *testing.T) *fakeSmileServer {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("decode replay body: %v", err)
 		}
-		fake.replayCallbackURL = body.CallbackURL
+		fake.setReplayCallback(body.CallbackURL)
 		writeJSON(t, w, http.StatusOK, map[string]string{
 			"status": "success", "job_id": "job_enhanced_123", "user_id": "user_123", "message": "replayed",
 		})

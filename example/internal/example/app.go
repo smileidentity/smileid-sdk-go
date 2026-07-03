@@ -176,6 +176,9 @@ func runServices(ctx context.Context, client *smileid.Client, args []string, std
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
+	if len(country) != 2 {
+		return usageError("services --country must be a 2-letter country code")
+	}
 
 	banks, err := client.Services.BankCodes(ctx, smileid.BankCodesParams{Country: smileid.String(country)})
 	if err != nil {
@@ -345,16 +348,8 @@ type cliUsageError string
 
 func (e cliUsageError) Error() string { return string(e) }
 
-func newUsageError(format string, args ...any) cliUsageError {
-	return cliUsageError(fmt.Sprintf(format, args...))
-}
-
-func usageErrorf(format string, args ...any) error {
-	return newUsageError(format, args...)
-}
-
 func usageError(format string, args ...any) error {
-	return usageErrorf(format, args...)
+	return cliUsageError(fmt.Sprintf(format, args...))
 }
 
 func IsUsageError(err error) bool {

@@ -15,8 +15,7 @@ This repository is a standalone example application for the Smile ID Go SDK.
 
 - `cmd/smileid-example-go` contains the executable entrypoint.
 - `internal/example` contains command parsing, SDK configuration, command handlers, and integration-style tests.
-- `.github/workflows/ci.yml` runs Go tests, vet, and Semgrep.
-- `.github/dependabot.yml` keeps Go modules and GitHub Actions current.
+- The parent SDK repository runs CI for this embedded example.
 
 ## Local SDK development
 
