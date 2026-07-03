@@ -24,6 +24,8 @@ func TestParseErrorClassByStatus(t *testing.T) {
 		{413, `{"status":"Content Too Large","message":"big"}`, func(e error) bool { var x *PayloadTooLargeError; return errors.As(e, &x) }},
 		{429, `{"status":"Too Many Requests","message":"slow"}`, func(e error) bool { var x *RateLimitError; return errors.As(e, &x) }},
 		{500, `{"status":"Internal Server Error","message":"boom"}`, func(e error) bool { var x *APIError; return errors.As(e, &x) }},
+		{501, `{"status":"Not Implemented","message":"nope"}`, func(e error) bool { var x *APIError; return errors.As(e, &x) }},
+		{599, `{"status":"Network Timeout","message":"edge"}`, func(e error) bool { var x *APIError; return errors.As(e, &x) }},
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("status_%d", tt.status), func(t *testing.T) {
@@ -32,6 +34,22 @@ func TestParseErrorClassByStatus(t *testing.T) {
 				t.Errorf("status %d produced %T", tt.status, err)
 			}
 		})
+	}
+}
+
+func TestParseErrorUnmappedNonServerStatusReturnsBaseError(t *testing.T) {
+	err := parseError(418, []byte(`{"status":"I'm a teapot","message":"short and stout"}`), "")
+
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		t.Fatalf("unmapped non-5xx status produced *APIError: %v", err)
+	}
+	var base *Error
+	if !errors.As(err, &base) {
+		t.Fatalf("err = %T %v, want the bare base *Error", err, err)
+	}
+	if base.StatusCode != 418 || base.Message != "short and stout" {
+		t.Errorf("base fields = %d %q", base.StatusCode, base.Message)
 	}
 }
 

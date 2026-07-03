@@ -68,7 +68,8 @@ type PayloadTooLargeError struct{ *smileIDError }
 // RateLimitError is raised for HTTP 429 responses.
 type RateLimitError struct{ *smileIDError }
 
-// APIError is raised for HTTP 5xx responses and any other unmapped status.
+// APIError is raised for HTTP 5xx responses. An unmapped non-5xx status
+// returns the bare base [Error] instead.
 type APIError struct{ *smileIDError }
 
 // ConnectionError is raised when no HTTP response was received (network
@@ -140,6 +141,9 @@ func parseError(status int, body []byte, requestID string) error {
 	case http.StatusTooManyRequests:
 		return &RateLimitError{base}
 	default:
-		return &APIError{base}
+		if status >= 500 {
+			return &APIError{base}
+		}
+		return base
 	}
 }

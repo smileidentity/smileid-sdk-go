@@ -296,7 +296,8 @@ The error types are:
 | `ConflictError` | HTTP 409 (for example a replay of a job still processing) |
 | `PayloadTooLargeError` | HTTP 413 |
 | `RateLimitError` | HTTP 429 |
-| `APIError` | HTTP 5xx and any other unmapped status |
+| `APIError` | HTTP 5xx |
+| `Error` (base) | any other unmapped status |
 | `ConnectionError` | network failure, timeout or context cancellation |
 | `ValidationError` | client-side validation, before any request is sent |
 | `TimeoutError` | `WaitUntilComplete` exceeding its timeout |
