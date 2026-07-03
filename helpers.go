@@ -127,13 +127,23 @@ func (r *VerificationsResource) WaitUntilComplete(ctx context.Context, jobID str
 		treatNotFoundAsPending = *opts.TreatNotFoundAsPending
 	}
 
+	parent := ctx
 	deadline := time.Now().Add(timeout)
-	ctx, cancel := context.WithDeadline(ctx, deadline)
+	pollCtx, cancel := context.WithDeadline(parent, deadline)
 	defer cancel()
 
 	for {
-		js, err := r.Retrieve(ctx, jobID)
+		js, err := r.Retrieve(pollCtx, jobID)
 		if err != nil {
+			// The poll deadline can expire while a Retrieve is in flight; the
+			// transport surfaces that as a ConnectionError wrapping
+			// context.DeadlineExceeded. Convert it to a TimeoutError, but only
+			// when it is attributable to the poll deadline: if the caller's
+			// own context is done, their cancellation or deadline wins and the
+			// original error is returned unchanged.
+			if parent.Err() == nil && pollCtx.Err() != nil && errors.Is(err, context.DeadlineExceeded) {
+				return nil, timeoutError(jobID, timeout)
+			}
 			return nil, err
 		}
 		if js.Status == "complete" {
@@ -148,12 +158,12 @@ func (r *VerificationsResource) WaitUntilComplete(ctx context.Context, jobID str
 
 		timer := time.NewTimer(interval)
 		select {
-		case <-ctx.Done():
+		case <-pollCtx.Done():
 			timer.Stop()
-			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-				return nil, timeoutError(jobID, timeout)
+			if parent.Err() != nil {
+				return nil, connectionError(parent.Err())
 			}
-			return nil, connectionError(ctx.Err())
+			return nil, timeoutError(jobID, timeout)
 		case <-timer.C:
 		}
 	}

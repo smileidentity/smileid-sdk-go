@@ -39,11 +39,16 @@ func TestWaitUntilCompleteProcessingThenComplete(t *testing.T) {
 }
 
 func TestWaitUntilCompleteTimeout(t *testing.T) {
+	// The status handler blocks for longer than the whole poll budget, so the
+	// poll deadline deterministically expires while a Retrieve is in flight.
+	// The resulting context.DeadlineExceeded must surface as TimeoutError,
+	// not ConnectionError.
 	c := testClient(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v3/token" {
 			serveToken(w)
 			return
 		}
+		time.Sleep(300 * time.Millisecond)
 		w.WriteHeader(http.StatusAccepted)
 		fmt.Fprint(w, `{"status":"processing","job_id":"job_x"}`)
 	})
@@ -55,6 +60,38 @@ func TestWaitUntilCompleteTimeout(t *testing.T) {
 	var timeoutErr *TimeoutError
 	if !errors.As(err, &timeoutErr) {
 		t.Fatalf("err = %T %v, want *TimeoutError", err, err)
+	}
+}
+
+func TestWaitUntilCompleteCallerCancellationIsNotTimeout(t *testing.T) {
+	// A caller cancelling their own context mid-poll must surface as the
+	// caller's error, never as the poll helper's TimeoutError.
+	c := testClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v3/token" {
+			serveToken(w)
+			return
+		}
+		time.Sleep(300 * time.Millisecond)
+		w.WriteHeader(http.StatusAccepted)
+		fmt.Fprint(w, `{"status":"processing","job_id":"job_x"}`)
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(30 * time.Millisecond)
+		cancel()
+	}()
+
+	_, err := c.Verifications.WaitUntilComplete(ctx, "job_x", WaitOptions{
+		Interval: 5 * time.Millisecond,
+		Timeout:  10 * time.Second,
+	})
+	var timeoutErr *TimeoutError
+	if errors.As(err, &timeoutErr) {
+		t.Fatalf("caller cancellation was converted to TimeoutError: %v", err)
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %T %v, want an error wrapping context.Canceled", err, err)
 	}
 }
 
