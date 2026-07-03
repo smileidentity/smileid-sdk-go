@@ -37,7 +37,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   idempotent calls only.
 - Consent builder and client-side validation for user details and fraud
   reports.
-- Optional HMAC request signing, off unless `PartnerSecret` is configured.
 - `UnexpectedResponseError`, returned when a success response body is not a
   JSON object.
 - Zero runtime dependencies beyond the Go standard library.
+
+### Removed
+
+- The `PartnerSecret` configuration field and the provisional HMAC request
+  signing (`SmileID-Timestamp` / `SmileID-Request-Signature` headers). Product
+  decision: request signing confused partners for little benefit. It may be
+  reintroduced if a signing contract is agreed with the backend.

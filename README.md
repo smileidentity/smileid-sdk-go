@@ -57,7 +57,6 @@ client, err := smileid.NewClient(smileid.Config{
 - `Timeout` — the per-request timeout (default 30s), enforced through the context.
 - `MaxRetries` — retries for idempotent operations (default 2; a negative value disables them).
 - `HTTPClient` — an injected `*http.Client` for testing or proxies.
-- `PartnerSecret` — enables HMAC request signing (see below).
 
 Every method takes a `context.Context` as its first argument and accepts optional per-request options, such as `smileid.WithTimeout` and `smileid.WithCallbackURL`.
 
@@ -314,12 +313,6 @@ Every error exposes `StatusCode`, `Status`, `Message`, `Code`, `RequestID` and `
 ## Telemetry
 
 The SDK sends `SmileID-Source-SDK: go`, `SmileID-Source-SDK-Version` and a `User-Agent` header on every request. These are observability signals, never authentication. There is no way to disable them.
-
-## HMAC request signing
-
-Request signing is off by default. Set `PartnerSecret` on the config to enable it; the SDK then adds `SmileID-Timestamp` and `SmileID-Request-Signature` headers computed over the final request body.
-
-The exact signature construction is provisional and must be confirmed with the backend before you enable it in production.
 
 ## Licence
 
