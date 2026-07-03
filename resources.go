@@ -15,7 +15,11 @@ func (r *EnhancedKYCResource) Verify(ctx context.Context, params EnhancedKYCPara
 	if err := validateUserDetails(params.UserDetails); err != nil {
 		return nil, err
 	}
-	params.CallbackURL = r.c.resolveCallback(params.CallbackURL, ro)
+	cb, err := r.c.resolveCallback(params.CallbackURL, ro)
+	if err != nil {
+		return nil, err
+	}
+	params.CallbackURL = cb
 
 	ctx, cancel := r.c.withTimeout(ctx, ro)
 	defer cancel()
@@ -36,7 +40,11 @@ func (r *DocumentsResource) Verify(ctx context.Context, params DocumentVerificat
 	if err := validateUserDetails(params.UserDetails); err != nil {
 		return nil, err
 	}
-	params.CallbackURL = r.c.resolveCallback(params.CallbackURL, ro)
+	cb, err := r.c.resolveCallback(params.CallbackURL, ro)
+	if err != nil {
+		return nil, err
+	}
+	params.CallbackURL = cb
 
 	ctx, cancel := r.c.withTimeout(ctx, ro)
 	defer cancel()
@@ -58,7 +66,11 @@ func (r *DocumentsResource) VerifyEnhanced(ctx context.Context, params DocumentV
 	if err := validateUserDetails(params.UserDetails); err != nil {
 		return nil, err
 	}
-	params.CallbackURL = r.c.resolveCallback(params.CallbackURL, ro)
+	cb, err := r.c.resolveCallback(params.CallbackURL, ro)
+	if err != nil {
+		return nil, err
+	}
+	params.CallbackURL = cb
 
 	ctx, cancel := r.c.withTimeout(ctx, ro)
 	defer cancel()
@@ -79,7 +91,11 @@ func (r *BiometricKYCResource) Verify(ctx context.Context, params BiometricKYCPa
 	if err := validateUserDetails(params.UserDetails); err != nil {
 		return nil, err
 	}
-	params.CallbackURL = r.c.resolveCallback(params.CallbackURL, ro)
+	cb, err := r.c.resolveCallback(params.CallbackURL, ro)
+	if err != nil {
+		return nil, err
+	}
+	params.CallbackURL = cb
 
 	ctx, cancel := r.c.withTimeout(ctx, ro)
 	defer cancel()
@@ -100,7 +116,11 @@ func (r *BiometricResource) Enroll(ctx context.Context, params RegistrationParam
 	if err := validateUserDetails(params.UserDetails); err != nil {
 		return nil, err
 	}
-	params.CallbackURL = r.c.resolveCallback(params.CallbackURL, ro)
+	cb, err := r.c.resolveCallback(params.CallbackURL, ro)
+	if err != nil {
+		return nil, err
+	}
+	params.CallbackURL = cb
 
 	ctx, cancel := r.c.withTimeout(ctx, ro)
 	defer cancel()
@@ -118,7 +138,11 @@ func (r *BiometricResource) Authenticate(ctx context.Context, params Authenticat
 	if err := validateAuthentication(params); err != nil {
 		return nil, err
 	}
-	params.CallbackURL = r.c.resolveCallback(params.CallbackURL, ro)
+	cb, err := r.c.resolveCallback(params.CallbackURL, ro)
+	if err != nil {
+		return nil, err
+	}
+	params.CallbackURL = cb
 
 	ctx, cancel := r.c.withTimeout(ctx, ro)
 	defer cancel()
@@ -136,7 +160,11 @@ func (r *BiometricResource) Compare(ctx context.Context, params CompareParams, o
 	if err := validateUserDetails(params.UserDetails); err != nil {
 		return nil, err
 	}
-	params.CallbackURL = r.c.resolveCallback(params.CallbackURL, ro)
+	cb, err := r.c.resolveCallback(params.CallbackURL, ro)
+	if err != nil {
+		return nil, err
+	}
+	params.CallbackURL = cb
 
 	ctx, cancel := r.c.withTimeout(ctx, ro)
 	defer cancel()
@@ -171,6 +199,11 @@ func (r *VerificationsResource) Replay(ctx context.Context, jobID string, params
 	ro := resolveOptions(opts)
 	if ro.callbackURL != nil {
 		params.CallbackURL = ro.callbackURL
+	}
+	if params.CallbackURL != nil {
+		if err := validateHTTPSURL("callback_url", *params.CallbackURL); err != nil {
+			return nil, err
+		}
 	}
 
 	ctx, cancel := r.c.withTimeout(ctx, ro)
