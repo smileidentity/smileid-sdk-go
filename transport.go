@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -27,6 +28,10 @@ const (
 	sdkVersion = "12.0.0"
 
 	timestampLayout = "2006-01-02T15:04:05.000Z"
+
+	maxUploadBytes        = 64 << 20
+	maxMultipartBodyBytes = 256 << 20
+	maxResponseBytes      = 16 << 20
 )
 
 // transport is the single HTTP layer. It builds the URL, attaches auth and
@@ -99,7 +104,7 @@ func (t *transport) Do(ctx context.Context, req *operations.Request, out interfa
 			return connectionError(err)
 		}
 
-		respBody, readErr := io.ReadAll(resp.Body)
+		respBody, readErr := readLimited(resp.Body, maxResponseBytes, "response body")
 		_ = resp.Body.Close()
 		if readErr != nil {
 			// A connection dropped mid-body is a transport failure, not a
@@ -254,6 +259,9 @@ func buildMultipart(req *operations.Request) ([]byte, string, error) {
 	if err := w.Close(); err != nil {
 		return nil, "", err
 	}
+	if buf.Len() > maxMultipartBodyBytes {
+		return nil, "", validationErrorf("multipart body exceeds %d bytes", maxMultipartBodyBytes)
+	}
 	return buf.Bytes(), w.FormDataContentType(), nil
 }
 
@@ -261,8 +269,11 @@ func writeBinaryPart(w *multipart.Writer, field string, b *models.BinaryInput) e
 	if b == nil {
 		return nil
 	}
-	data, err := b.Bytes()
+	data, err := b.BytesLimit(maxUploadBytes)
 	if err != nil {
+		if errors.Is(err, models.ErrInputTooLarge) {
+			return validationErrorf("%s exceeds %d bytes", field, maxUploadBytes)
+		}
 		return err
 	}
 	h := textproto.MIMEHeader{}
@@ -274,6 +285,18 @@ func writeBinaryPart(w *multipart.Writer, field string, b *models.BinaryInput) e
 	}
 	_, err = pw.Write(data)
 	return err
+}
+
+func readLimited(r io.Reader, limit int64, label string) ([]byte, error) {
+	lr := &io.LimitedReader{R: r, N: limit + 1}
+	data, err := io.ReadAll(lr)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > limit {
+		return nil, validationErrorf("%s exceeds %d bytes", label, limit)
+	}
+	return data, nil
 }
 
 func connectionError(err error) error {

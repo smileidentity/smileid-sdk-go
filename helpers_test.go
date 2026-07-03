@@ -42,7 +42,7 @@ func testClient(t *testing.T, handler http.HandlerFunc) *Client {
 	t.Helper()
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
-	c, err := NewClient(Config{PartnerID: "1234", APIKey: "test-key", BaseURL: srv.URL})
+	c, err := NewClient(Config{PartnerID: "1234", APIKey: "test-key", BaseURL: srv.URL, AllowInsecureBaseURL: true})
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}

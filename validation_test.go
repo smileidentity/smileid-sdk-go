@@ -10,7 +10,7 @@ import (
 // reaches it, so validation errors are proven to fire before sending.
 func failingClient(t *testing.T) *Client {
 	t.Helper()
-	c, err := NewClient(Config{PartnerID: "1234", APIKey: "test-key", BaseURL: "http://127.0.0.1:0"})
+	c, err := NewClient(Config{PartnerID: "1234", APIKey: "test-key", BaseURL: "http://127.0.0.1:0", AllowInsecureBaseURL: true})
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}
@@ -23,6 +23,43 @@ func assertValidationError(t *testing.T, err error) {
 	if !errors.As(err, &v) {
 		t.Fatalf("err = %T %v, want *ValidationError", err, err)
 	}
+}
+
+func TestConfigRejectsUnsafeBaseURL(t *testing.T) {
+	tests := []Config{
+		{PartnerID: "1234", APIKey: "test-key", BaseURL: "http://api.example.com"},
+		{PartnerID: "1234", APIKey: "test-key", BaseURL: "ftp://api.example.com"},
+		{PartnerID: "1234", APIKey: "test-key", BaseURL: "/relative"},
+	}
+	for _, cfg := range tests {
+		if _, err := NewClient(cfg); err == nil {
+			t.Fatalf("NewClient(%q) succeeded, want validation error", cfg.BaseURL)
+		} else {
+			assertValidationError(t, err)
+		}
+	}
+}
+
+func TestConfigAllowsExplicitInsecureLoopbackBaseURL(t *testing.T) {
+	_, err := NewClient(Config{
+		PartnerID:            "1234",
+		APIKey:               "test-key",
+		BaseURL:              "http://localhost:8080",
+		AllowInsecureBaseURL: true,
+	})
+	if err != nil {
+		t.Fatalf("NewClient returned error: %v", err)
+	}
+}
+
+func TestConfigRejectsUnknownEnvironment(t *testing.T) {
+	_, err := NewClient(Config{PartnerID: "1234", APIKey: "test-key", Environment: Environment("prod")})
+	assertValidationError(t, err)
+}
+
+func TestConfigRejectsInsecureDefaultCallbackURL(t *testing.T) {
+	_, err := NewClient(Config{PartnerID: "1234", APIKey: "test-key", DefaultCallbackURL: "http://partner.example.com/callback"})
+	assertValidationError(t, err)
 }
 
 func TestUserDetailsRequiresEmailOrPhone(t *testing.T) {
@@ -51,6 +88,32 @@ func TestVerifyEnhancedRequiresIDType(t *testing.T) {
 		Document:       FromBytes(jpegBytes, "d.jpg"),
 		UserDetails:    validUserDetails(),
 		Consent:        validConsent(),
+	})
+	assertValidationError(t, err)
+}
+
+func TestDocumentVerificationRequiresSixToEightLivenessImages(t *testing.T) {
+	c := failingClient(t)
+	_, err := c.Documents.Verify(context.Background(), DocumentVerificationParams{
+		Country:        "NG",
+		SelfieImage:    FromBytes(jpegBytes, "s.jpg"),
+		LivenessImages: livenessSet(5),
+		Document:       FromBytes(jpegBytes, "d.jpg"),
+		UserDetails:    validUserDetails(),
+		Consent:        validConsent(),
+	})
+	assertValidationError(t, err)
+}
+
+func TestRequestCallbackURLMustUseHTTPS(t *testing.T) {
+	c := failingClient(t)
+	_, err := c.EnhancedKYC.Verify(context.Background(), EnhancedKYCParams{
+		Country:     "NG",
+		IDType:      "NIN",
+		IDNumber:    "1",
+		UserDetails: validUserDetails(),
+		Consent:     validConsent(),
+		CallbackURL: String("http://partner.example.com/callback"),
 	})
 	assertValidationError(t, err)
 }

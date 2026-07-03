@@ -1,7 +1,9 @@
 package smileid
 
 import (
+	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -42,6 +44,9 @@ type Config struct {
 	DefaultCallbackURL string
 	// BaseURL overrides the environment-derived base URL when set.
 	BaseURL string
+	// AllowInsecureBaseURL permits http:// loopback BaseURL values for local
+	// tests. Production code should leave this false.
+	AllowInsecureBaseURL bool
 	// Timeout is the per-request total timeout. Defaults to 30s.
 	Timeout time.Duration
 	// MaxRetries is the number of retries for idempotent operations.
@@ -76,8 +81,12 @@ func (c Config) normalize() (config, error) {
 	}
 
 	env := c.Environment
-	if env == "" {
+	switch env {
+	case "":
 		env = Sandbox
+	case Sandbox, Production:
+	default:
+		return config{}, validationErrorf("environment must be %q or %q", Sandbox, Production)
 	}
 
 	base := c.BaseURL
@@ -88,7 +97,16 @@ func (c Config) normalize() (config, error) {
 			base = sandboxBaseURL
 		}
 	}
-	base = strings.TrimRight(base, "/")
+	base, err := normalizeBaseURL(base, c.AllowInsecureBaseURL)
+	if err != nil {
+		return config{}, err
+	}
+
+	if c.DefaultCallbackURL != "" {
+		if err := validateCallbackURL(c.DefaultCallbackURL); err != nil {
+			return config{}, err
+		}
+	}
 
 	timeout := c.Timeout
 	if timeout == 0 {
@@ -112,4 +130,41 @@ func (c Config) normalize() (config, error) {
 		timeout:            timeout,
 		maxRetries:         retries,
 	}, nil
+}
+
+func normalizeBaseURL(raw string, allowInsecure bool) (string, error) {
+	raw = strings.TrimRight(strings.TrimSpace(raw), "/")
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return "", validationErrorf("base_url must be an absolute URL")
+	}
+	if u.RawQuery != "" || u.Fragment != "" {
+		return "", validationErrorf("base_url must not include query or fragment")
+	}
+	if u.Scheme == "https" {
+		return strings.TrimRight(u.String(), "/"), nil
+	}
+	if allowInsecure && u.Scheme == "http" && isLoopbackHost(u.Hostname()) {
+		return strings.TrimRight(u.String(), "/"), nil
+	}
+	return "", validationErrorf("base_url must use https")
+}
+
+func validateCallbackURL(raw string) error {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return validationErrorf("callback_url must be an absolute URL")
+	}
+	if u.Scheme != "https" {
+		return validationErrorf("callback_url must use https")
+	}
+	return nil
+}
+
+func isLoopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }

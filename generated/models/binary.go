@@ -2,11 +2,15 @@ package models
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+// ErrInputTooLarge is returned when a binary input exceeds the SDK upload cap.
+var ErrInputTooLarge = errors.New("binary input exceeds maximum upload size")
 
 // BinaryInput represents an image or file to be uploaded as a multipart part.
 // Construct one with [FromFile], [FromBytes] or [FromReader].
@@ -53,13 +57,38 @@ func (b *BinaryInput) Filename() string {
 
 // Bytes materializes the input into a byte slice.
 func (b *BinaryInput) Bytes() ([]byte, error) {
+	return b.BytesLimit(0)
+}
+
+// BytesLimit materializes the input into a byte slice, failing if the input
+// exceeds limit bytes. A non-positive limit means unlimited.
+func (b *BinaryInput) BytesLimit(limit int64) ([]byte, error) {
 	switch {
 	case b.data != nil:
+		if limit > 0 && int64(len(b.data)) > limit {
+			return nil, ErrInputTooLarge
+		}
 		return b.data, nil
 	case b.path != "":
+		if limit > 0 {
+			if st, err := os.Stat(b.path); err == nil && st.Size() > limit {
+				return nil, ErrInputTooLarge
+			}
+		}
 		return os.ReadFile(b.path)
 	case b.reader != nil:
-		return io.ReadAll(b.reader)
+		if limit <= 0 {
+			return io.ReadAll(b.reader)
+		}
+		lr := &io.LimitedReader{R: b.reader, N: limit + 1}
+		data, err := io.ReadAll(lr)
+		if err != nil {
+			return nil, err
+		}
+		if int64(len(data)) > limit {
+			return nil, ErrInputTooLarge
+		}
+		return data, nil
 	default:
 		return []byte{}, nil
 	}

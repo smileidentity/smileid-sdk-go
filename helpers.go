@@ -49,20 +49,166 @@ func validateUserDetails(ud UserDetails) error {
 	return nil
 }
 
+func validateCommon(country string, consent Consent, ud UserDetails, callbackURL *string) error {
+	if strings.TrimSpace(country) == "" {
+		return validationErrorf("country is required")
+	}
+	if err := validateConsent(consent); err != nil {
+		return err
+	}
+	if err := validateUserDetails(ud); err != nil {
+		return err
+	}
+	return validateOptionalCallback(callbackURL)
+}
+
+func validateConsent(c Consent) error {
+	if !c.Granted {
+		return validationErrorf("consent.granted must be true")
+	}
+	if strings.TrimSpace(c.GrantedAt) == "" {
+		return validationErrorf("consent.granted_at is required")
+	}
+	if strings.TrimSpace(c.NoticeLanguage) == "" {
+		return validationErrorf("consent.notice_language is required")
+	}
+	if strings.TrimSpace(c.NoticePrivacyPolicyURL) == "" {
+		return validationErrorf("consent.notice_privacy_policy_url is required")
+	}
+	return nil
+}
+
+func validateOptionalCallback(callbackURL *string) error {
+	if callbackURL == nil || strings.TrimSpace(*callbackURL) == "" {
+		return nil
+	}
+	return validateCallbackURL(*callbackURL)
+}
+
+func validateLivenessImages(images []*BinaryInput) error {
+	if len(images) < 6 || len(images) > 8 {
+		return validationErrorf("liveness_images must contain 6 to 8 images")
+	}
+	for i, img := range images {
+		if img == nil {
+			return validationErrorf("liveness_images[%d] is required", i)
+		}
+	}
+	return nil
+}
+
+func validateBinary(name string, b *BinaryInput) error {
+	if b == nil {
+		return validationErrorf("%s is required", name)
+	}
+	return nil
+}
+
+func validateEnhancedKYC(p EnhancedKYCParams) error {
+	if strings.TrimSpace(p.IDType) == "" {
+		return validationErrorf("id_type is required")
+	}
+	if strings.TrimSpace(p.IDNumber) == "" {
+		return validationErrorf("id_number is required")
+	}
+	return validateCommon(p.Country, p.Consent, p.UserDetails, p.CallbackURL)
+}
+
+func validateDocumentVerification(p DocumentVerificationParams) error {
+	if err := validateCommon(p.Country, p.Consent, p.UserDetails, p.CallbackURL); err != nil {
+		return err
+	}
+	if err := validateBinary("selfie_image", p.SelfieImage); err != nil {
+		return err
+	}
+	if err := validateLivenessImages(p.LivenessImages); err != nil {
+		return err
+	}
+	return validateBinary("document", p.Document)
+}
+
+func validateBiometricKYC(p BiometricKYCParams) error {
+	if strings.TrimSpace(p.IDType) == "" {
+		return validationErrorf("id_type is required")
+	}
+	if strings.TrimSpace(p.IDNumber) == "" {
+		return validationErrorf("id_number is required")
+	}
+	if err := validateCommon(p.Country, p.Consent, p.UserDetails, p.CallbackURL); err != nil {
+		return err
+	}
+	if err := validateBinary("selfie_image", p.SelfieImage); err != nil {
+		return err
+	}
+	return validateLivenessImages(p.LivenessImages)
+}
+
+func validateRegistration(p RegistrationParams) error {
+	if err := validateConsent(p.Consent); err != nil {
+		return err
+	}
+	if err := validateUserDetails(p.UserDetails); err != nil {
+		return err
+	}
+	if err := validateOptionalCallback(p.CallbackURL); err != nil {
+		return err
+	}
+	if err := validateBinary("selfie_image", p.SelfieImage); err != nil {
+		return err
+	}
+	return validateLivenessImages(p.LivenessImages)
+}
+
 func validateAuthentication(p AuthenticationParams) error {
 	if strings.TrimSpace(p.UserID) == "" {
 		return validationErrorf("user_id is required for authentication")
+	}
+	if err := validateConsent(p.Consent); err != nil {
+		return err
+	}
+	if err := validateOptionalCallback(p.CallbackURL); err != nil {
+		return err
 	}
 	useEnrolled := p.UseEnrolledImage != nil && *p.UseEnrolledImage
 	if !useEnrolled {
 		if p.SelfieImage == nil {
 			return validationErrorf("selfie_image is required unless use_enrolled_image is true")
 		}
-		if len(p.LivenessImages) == 0 {
-			return validationErrorf("liveness_images are required unless use_enrolled_image is true")
+		if err := validateLivenessImages(p.LivenessImages); err != nil {
+			return err
 		}
 	}
 	return validateUserDetails(p.UserDetails)
+}
+
+func validateCompare(p CompareParams) error {
+	if err := validateConsent(p.Consent); err != nil {
+		return err
+	}
+	if err := validateUserDetails(p.UserDetails); err != nil {
+		return err
+	}
+	if err := validateOptionalCallback(p.CallbackURL); err != nil {
+		return err
+	}
+	if err := validateBinary("selfie_image", p.SelfieImage); err != nil {
+		return err
+	}
+	if err := validateBinary("comparison_image", p.ComparisonImage); err != nil {
+		return err
+	}
+	if strings.TrimSpace(p.ComparisonImageType) == "" {
+		return validationErrorf("comparison_image_type is required")
+	}
+	if p.ComparisonImageType != ComparisonImageTypeDocument &&
+		p.ComparisonImageType != ComparisonImageTypeIDPhoto &&
+		p.ComparisonImageType != ComparisonImageTypePortrait {
+		return validationErrorf("comparison_image_type must be one of %s, %s, %s", ComparisonImageTypeDocument, ComparisonImageTypeIDPhoto, ComparisonImageTypePortrait)
+	}
+	if len(p.LivenessImages) > 0 {
+		return validateLivenessImages(p.LivenessImages)
+	}
+	return nil
 }
 
 func validateReportFraud(p ReportFraudParams) error {
