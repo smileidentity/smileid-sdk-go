@@ -1,0 +1,43 @@
+name: Security Audit
+
+on:
+  pull_request:
+    paths:
+      - 'go.mod'
+      - 'go.sum'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 9 * * *'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: stable
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - name: Run govulncheck
+        run: govulncheck ./...
+      - name: Create issue on failure
+        if: failure() && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXISTING=$(gh issue list --label "security-audit" --state open --json number --jq 'length')
+          if [ "$EXISTING" -gt 0 ]; then exit 0; fi
+          TITLE_DATE=$(date +%Y-%m-%d)
+          gh label create "security-audit" --description "Automated security audit" --color "D93F0B" 2>/dev/null || true
+          gh label create "priority:high" --description "High priority" --color "B60205" 2>/dev/null || true
+          gh issue create \
+            --title "Security: Go dependency vulnerabilities detected (${TITLE_DATE})" \
+            --label "security-audit" \
+            --label "priority:high" \
+            --body "The daily security audit has detected vulnerabilities. See [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details."
