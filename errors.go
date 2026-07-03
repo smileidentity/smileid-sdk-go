@@ -1,4 +1,4 @@
-package smileid
+package usesmileid
 
 import (
 	"encoding/json"
@@ -28,13 +28,13 @@ type smileIDError struct {
 func (e *smileIDError) Error() string {
 	switch {
 	case e.StatusCode != 0 && e.Message != "":
-		return fmt.Sprintf("smileid: HTTP %d: %s", e.StatusCode, e.Message)
+		return fmt.Sprintf("usesmileid: HTTP %d: %s", e.StatusCode, e.Message)
 	case e.StatusCode != 0:
-		return fmt.Sprintf("smileid: HTTP %d", e.StatusCode)
+		return fmt.Sprintf("usesmileid: HTTP %d", e.StatusCode)
 	case e.Message != "":
-		return "smileid: " + e.Message
+		return "usesmileid: " + e.Message
 	default:
-		return "smileid: unknown error"
+		return "usesmileid: unknown error"
 	}
 }
 

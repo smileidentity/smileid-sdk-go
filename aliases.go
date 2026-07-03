@@ -1,4 +1,4 @@
-package smileid
+package usesmileid
 
 import "github.com/smileidentity/smileid-sdk-go/v12/generated/models"
 
