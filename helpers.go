@@ -1,4 +1,4 @@
-package smileid
+package usesmileid
 
 import (
 	"context"

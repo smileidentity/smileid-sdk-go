@@ -18,14 +18,14 @@ Import the root package:
 import "github.com/smileidentity/smileid-sdk-go/v12"
 ```
 
-The import path ends in `/v12` because the module is at major version 12. In code you refer to the package as `smileid`.
+The import path ends in `/v12` because the module is at major version 12. In code you refer to the package as `usesmileid`.
 
 ## Authentication
 
 Construct a client with your partner ID and API key. The SDK fetches, caches and refreshes the internal JWT for you; you never handle a token directly.
 
 ```go
-client, err := smileid.NewClient(smileid.Config{
+client, err := usesmileid.NewClient(usesmileid.Config{
     PartnerID: "1234",
     APIKey:    os.Getenv("SMILE_API_KEY"),
 })
@@ -41,14 +41,14 @@ Keep your API key out of source control. Read it from the environment or a secre
 The client uses the sandbox by default. Set `Environment` to switch to production.
 
 ```go
-client, err := smileid.NewClient(smileid.Config{
+client, err := usesmileid.NewClient(usesmileid.Config{
     PartnerID:   "1234",
     APIKey:      os.Getenv("SMILE_API_KEY"),
-    Environment: smileid.Production,
+    Environment: usesmileid.Production,
 })
 ```
 
-`Environment` accepts only `smileid.Sandbox` or `smileid.Production` (or the empty zero value, which means sandbox); anything else fails at construction.
+`Environment` accepts only `usesmileid.Sandbox` or `usesmileid.Production` (or the empty zero value, which means sandbox); anything else fails at construction.
 
 `Config` also accepts:
 
@@ -58,7 +58,7 @@ client, err := smileid.NewClient(smileid.Config{
 - `MaxRetries` — retries for idempotent operations (default 2; a negative value disables them).
 - `HTTPClient` — an injected `*http.Client` for testing or proxies.
 
-Every method takes a `context.Context` as its first argument and accepts optional per-request options, such as `smileid.WithTimeout` and `smileid.WithCallbackURL`.
+Every method takes a `context.Context` as its first argument and accepts optional per-request options, such as `usesmileid.WithTimeout` and `usesmileid.WithCallbackURL`.
 
 ### URLs must be https
 
@@ -69,25 +69,25 @@ Every method takes a `context.Context` as its first argument and accepts optiona
 Every entry endpoint needs consent and user details. Use the `GrantConsent` helper, and set at least one of email or phone number on user details — the SDK checks this before sending.
 
 ```go
-consent := smileid.GrantConsent(time.Now(), "EN", "https://example.com/privacy")
+consent := usesmileid.GrantConsent(time.Now(), "EN", "https://example.com/privacy")
 
-userDetails := smileid.UserDetails{
+userDetails := usesmileid.UserDetails{
     GivenNames: "Amina Fatou",
     LastName:   "Clearwater",
-    Email:      smileid.String("amina.clearwater@example.com"),
+    Email:      usesmileid.String("amina.clearwater@example.com"),
 }
 ```
 
-`smileid.String`, `smileid.Bool`, `smileid.Float64` and the generic `smileid.Ptr` return pointers for the optional fields on params structs.
+`usesmileid.String`, `usesmileid.Bool`, `usesmileid.Float64` and the generic `usesmileid.Ptr` return pointers for the optional fields on params structs.
 
 ## Supplying images
 
 Image fields accept a file path, a byte slice or a reader:
 
 ```go
-smileid.FromFile("selfie.jpg")
-smileid.FromBytes(buf, "selfie.jpg")
-smileid.FromReader(r, "selfie.jpg")
+usesmileid.FromFile("selfie.jpg")
+usesmileid.FromBytes(buf, "selfie.jpg")
+usesmileid.FromReader(r, "selfie.jpg")
 ```
 
 The SDK sends `image/jpeg` for selfie, liveness and comparison images. For the document and document back it detects PNG by file extension or magic bytes. To force a type, call `WithContentType` on the input.
@@ -97,7 +97,7 @@ The SDK sends `image/jpeg` for selfie, liveness and comparison images. For the d
 ### Enhanced KYC
 
 ```go
-accepted, err := client.EnhancedKYC.Verify(ctx, smileid.EnhancedKYCParams{
+accepted, err := client.EnhancedKYC.Verify(ctx, usesmileid.EnhancedKYCParams{
     Country:     "NG",
     IDType:      "NIN",
     IDNumber:    "12345678901",
@@ -113,11 +113,11 @@ fmt.Println(accepted.JobID, accepted.IsAccepted())
 ### Document verification
 
 ```go
-accepted, err := client.Documents.Verify(ctx, smileid.DocumentVerificationParams{
+accepted, err := client.Documents.Verify(ctx, usesmileid.DocumentVerificationParams{
     Country:        "NG",
-    SelfieImage:    smileid.FromFile("selfie.jpg"),
-    LivenessImages: []*smileid.BinaryInput{smileid.FromFile("live1.jpg"), smileid.FromFile("live2.jpg")},
-    Document:       smileid.FromFile("document.jpg"),
+    SelfieImage:    usesmileid.FromFile("selfie.jpg"),
+    LivenessImages: []*usesmileid.BinaryInput{usesmileid.FromFile("live1.jpg"), usesmileid.FromFile("live2.jpg")},
+    Document:       usesmileid.FromFile("document.jpg"),
     UserDetails:    userDetails,
     Consent:        consent,
 })
@@ -128,12 +128,12 @@ accepted, err := client.Documents.Verify(ctx, smileid.DocumentVerificationParams
 `VerifyEnhanced` requires `IDType`.
 
 ```go
-accepted, err := client.Documents.VerifyEnhanced(ctx, smileid.DocumentVerificationParams{
+accepted, err := client.Documents.VerifyEnhanced(ctx, usesmileid.DocumentVerificationParams{
     Country:        "NG",
-    IDType:         smileid.String("PASSPORT"),
-    SelfieImage:    smileid.FromFile("selfie.jpg"),
+    IDType:         usesmileid.String("PASSPORT"),
+    SelfieImage:    usesmileid.FromFile("selfie.jpg"),
     LivenessImages: liveness,
-    Document:       smileid.FromFile("document.jpg"),
+    Document:       usesmileid.FromFile("document.jpg"),
     UserDetails:    userDetails,
     Consent:        consent,
 })
@@ -142,11 +142,11 @@ accepted, err := client.Documents.VerifyEnhanced(ctx, smileid.DocumentVerificati
 ### Biometric KYC
 
 ```go
-accepted, err := client.BiometricKYC.Verify(ctx, smileid.BiometricKYCParams{
+accepted, err := client.BiometricKYC.Verify(ctx, usesmileid.BiometricKYCParams{
     Country:        "NG",
     IDType:         "NIN",
     IDNumber:       "12345678901",
-    SelfieImage:    smileid.FromFile("selfie.jpg"),
+    SelfieImage:    usesmileid.FromFile("selfie.jpg"),
     LivenessImages: liveness,
     UserDetails:    userDetails,
     Consent:        consent,
@@ -156,8 +156,8 @@ accepted, err := client.BiometricKYC.Verify(ctx, smileid.BiometricKYCParams{
 ### Biometric enrollment
 
 ```go
-accepted, err := client.Biometric.Enroll(ctx, smileid.RegistrationParams{
-    SelfieImage:    smileid.FromFile("selfie.jpg"),
+accepted, err := client.Biometric.Enroll(ctx, usesmileid.RegistrationParams{
+    SelfieImage:    usesmileid.FromFile("selfie.jpg"),
     LivenessImages: liveness,
     UserDetails:    userDetails,
     Consent:        consent,
@@ -169,9 +169,9 @@ accepted, err := client.Biometric.Enroll(ctx, smileid.RegistrationParams{
 `UserID` is required. Provide images unless `UseEnrolledImage` is true.
 
 ```go
-accepted, err := client.Biometric.Authenticate(ctx, smileid.AuthenticationParams{
+accepted, err := client.Biometric.Authenticate(ctx, usesmileid.AuthenticationParams{
     UserID:         "user_123",
-    SelfieImage:    smileid.FromFile("selfie.jpg"),
+    SelfieImage:    usesmileid.FromFile("selfie.jpg"),
     LivenessImages: liveness,
     UserDetails:    userDetails,
     Consent:        consent,
@@ -181,10 +181,10 @@ accepted, err := client.Biometric.Authenticate(ctx, smileid.AuthenticationParams
 ### Biometric compare
 
 ```go
-accepted, err := client.Biometric.Compare(ctx, smileid.CompareParams{
-    SelfieImage:         smileid.FromFile("selfie.jpg"),
-    ComparisonImage:     smileid.FromFile("id_photo.jpg"),
-    ComparisonImageType: smileid.ComparisonImageTypeIDPhoto,
+accepted, err := client.Biometric.Compare(ctx, usesmileid.CompareParams{
+    SelfieImage:         usesmileid.FromFile("selfie.jpg"),
+    ComparisonImage:     usesmileid.FromFile("id_photo.jpg"),
+    ComparisonImageType: usesmileid.ComparisonImageTypeIDPhoto,
     UserDetails:         userDetails,
     Consent:             consent,
 })
@@ -205,37 +205,37 @@ fmt.Println(status.Status, status.Message)
 ### Wait for completion
 
 ```go
-status, err := client.Verifications.WaitUntilComplete(ctx, "job_...", smileid.WaitOptions{
+status, err := client.Verifications.WaitUntilComplete(ctx, "job_...", usesmileid.WaitOptions{
     Interval: 2 * time.Second,
     Timeout:  60 * time.Second,
 })
 ```
 
-`WaitOptions` defaults to a 2s interval, a 60s timeout, and treating a not-found job as still pending. Set `TreatNotFoundAsPending: smileid.Bool(false)` to return a not-found status straight away. On timeout the method returns a `*smileid.TimeoutError`.
+`WaitOptions` defaults to a 2s interval, a 60s timeout, and treating a not-found job as still pending. Set `TreatNotFoundAsPending: usesmileid.Bool(false)` to return a not-found status straight away. On timeout the method returns a `*usesmileid.TimeoutError`.
 
 ### Replay a callback
 
 ```go
-replay, err := client.Verifications.Replay(ctx, "job_...", smileid.ReplayParams{
-    CallbackURL: smileid.String("https://partner.example.com/webhook"),
+replay, err := client.Verifications.Replay(ctx, "job_...", usesmileid.ReplayParams{
+    CallbackURL: usesmileid.String("https://partner.example.com/webhook"),
 })
 ```
 
 ### Report, flag and clear fraud
 
 ```go
-_, err := client.Users.ReportFraud(ctx, "user_123", smileid.ReportFraudParams{
+_, err := client.Users.ReportFraud(ctx, "user_123", usesmileid.ReportFraudParams{
     IsFraud:    true,
-    Reason:     smileid.String(smileid.ReasonAccountTakeover),
+    Reason:     usesmileid.String(usesmileid.ReasonAccountTakeover),
     ReportedBy: "risk@partner.example",
 })
 
-_, err = client.Users.FlagFraud(ctx, "user_123", smileid.FlagFraudParams{
-    Reason:     smileid.ReasonFirstPartyFraud,
+_, err = client.Users.FlagFraud(ctx, "user_123", usesmileid.FlagFraudParams{
+    Reason:     usesmileid.ReasonFirstPartyFraud,
     ReportedBy: "risk@partner.example",
 })
 
-_, err = client.Users.ClearFraud(ctx, "user_123", smileid.ClearFraudParams{
+_, err = client.Users.ClearFraud(ctx, "user_123", usesmileid.ClearFraudParams{
     Notes:      "Cleared by appeals review",
     ReportedBy: "risk@partner.example",
 })
@@ -248,19 +248,19 @@ A fraud report needs a reason when `IsFraud` is true, and notes when it is false
 The bank codes, supported ID types and supported documents endpoints need no authentication. The ID status endpoint does.
 
 ```go
-banks, err := client.Services.BankCodes(ctx, smileid.BankCodesParams{
-    Country: smileid.String("NG"),
+banks, err := client.Services.BankCodes(ctx, usesmileid.BankCodesParams{
+    Country: usesmileid.String("NG"),
 })
 
-idTypes, err := client.Services.SupportedIDTypes(ctx, smileid.SupportedIDTypesParams{
-    Country: smileid.String("NG"),
+idTypes, err := client.Services.SupportedIDTypes(ctx, usesmileid.SupportedIDTypesParams{
+    Country: usesmileid.String("NG"),
 })
 
-docs, err := client.Services.SupportedDocuments(ctx, smileid.SupportedDocumentsParams{
-    CountryCode: smileid.String("NG"),
+docs, err := client.Services.SupportedDocuments(ctx, usesmileid.SupportedDocumentsParams{
+    CountryCode: usesmileid.String("NG"),
 })
 
-idStatus, err := client.Services.IDStatus(ctx, smileid.IDStatusParams{
+idStatus, err := client.Services.IDStatus(ctx, usesmileid.IDStatusParams{
     Country: "NG",
     IDType:  "NIN",
 })
@@ -273,9 +273,9 @@ Every failure returns a typed error over a shared base. Match a specific type wi
 ```go
 accepted, err := client.EnhancedKYC.Verify(ctx, params)
 if err != nil {
-    var invalid *smileid.InvalidRequestError
-    var auth *smileid.AuthenticationError
-    var rateLimit *smileid.RateLimitError
+    var invalid *usesmileid.InvalidRequestError
+    var auth *usesmileid.AuthenticationError
+    var rateLimit *usesmileid.RateLimitError
     switch {
     case errors.As(err, &invalid):
         log.Printf("bad request: %s (HTTP %d)", invalid.Message, invalid.StatusCode)
