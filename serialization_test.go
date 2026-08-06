@@ -185,7 +185,7 @@ func TestAuthenticationRoutesUserIDToBody(t *testing.T) {
 	assertScalar(t, parts, "user_id", "user_auth_001")
 }
 
-func TestReplayIsJSONNotMultipart(t *testing.T) {
+func TestReplayMultipartWithCallbackURL(t *testing.T) {
 	var cap captured
 	c := testClient(t, captureHandler(&cap, http.StatusAccepted,
 		`{"status":"accepted","job_id":"job_x","user_id":"test-user","message":"queued"}`))
@@ -196,15 +196,31 @@ func TestReplayIsJSONNotMultipart(t *testing.T) {
 		t.Fatalf("Replay: %v", err)
 	}
 
-	if cap.contentType != "application/json" {
-		t.Errorf("replay content type = %q, want application/json", cap.contentType)
+	if !strings.HasPrefix(cap.contentType, "multipart/form-data") {
+		t.Fatalf("replay content type = %q, want multipart/form-data", cap.contentType)
 	}
-	var body map[string]any
-	if err := json.Unmarshal(cap.body, &body); err != nil {
-		t.Fatalf("replay body json: %v", err)
+	parts := parseMultipart(t, cap.contentType, cap.body)
+	if len(parts) != 1 {
+		t.Fatalf("expected exactly one multipart part, got %d", len(parts))
 	}
-	if body["callback_url"] != "https://partner.example.com/webhook" {
-		t.Errorf("replay body = %s", cap.body)
+	assertScalar(t, parts, "callback_url", "https://partner.example.com/webhook")
+}
+
+func TestReplayNoBodyWithoutCallbackURL(t *testing.T) {
+	var cap captured
+	c := testClient(t, captureHandler(&cap, http.StatusAccepted,
+		`{"status":"accepted","job_id":"job_x","user_id":"test-user","message":"queued"}`))
+
+	_, err := c.Verifications.Replay(context.Background(), "job_01h2xcejqtf2nbrexx3vqjhp41", ReplayParams{})
+	if err != nil {
+		t.Fatalf("Replay: %v", err)
+	}
+
+	if len(cap.body) != 0 {
+		t.Errorf("replay without a callback override sent a body: %q", cap.body)
+	}
+	if cap.contentType != "" {
+		t.Errorf("replay without a body sent Content-Type %q", cap.contentType)
 	}
 }
 
