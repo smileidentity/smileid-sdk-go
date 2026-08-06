@@ -258,13 +258,8 @@ func newFakeSmileServer(t *testing.T) *fakeSmileServer {
 	})
 	mux.HandleFunc("/v3/replay/job_enhanced_123", func(w http.ResponseWriter, r *http.Request) {
 		assertBearerToken(t, r)
-		var body struct {
-			CallbackURL string `json:"callback_url"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Errorf("decode replay body: %v", err)
-		}
-		fake.setReplayCallback(body.CallbackURL)
+		// Replay sends multipart/form-data; FormValue parses it.
+		fake.setReplayCallback(r.FormValue("callback_url"))
 		writeJSON(t, w, http.StatusOK, map[string]string{
 			"status": "success", "job_id": "job_enhanced_123", "user_id": "user_123", "message": "replayed",
 		})

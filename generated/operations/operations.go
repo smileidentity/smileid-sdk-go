@@ -20,10 +20,9 @@ type BodyKind int
 const (
 	// BodyNone is a request with no body (GETs).
 	BodyNone BodyKind = iota
-	// BodyMultipart is a multipart/form-data body (entry endpoints, report_fraud).
+	// BodyMultipart is a multipart/form-data body (entry endpoints,
+	// report_fraud, and replay when a callback override is present).
 	BodyMultipart
-	// BodyJSON is an application/json body (replay only).
-	BodyJSON
 )
 
 // PartKind describes how a single multipart part is encoded.
@@ -64,7 +63,6 @@ type Request struct {
 	NotFoundReturnsBody  bool              // decode a 404 body instead of raising
 	BodyKind             BodyKind
 	Parts                []Part
-	JSONBody             interface{}
 }
 
 // Doer executes a Request and decodes a successful response into out.
