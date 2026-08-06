@@ -190,12 +190,6 @@ func (t *transport) buildBody(req *operations.Request) ([]byte, string, error) {
 	switch req.BodyKind {
 	case operations.BodyMultipart:
 		return buildMultipart(req)
-	case operations.BodyJSON:
-		b, err := json.Marshal(req.JSONBody)
-		if err != nil {
-			return nil, "", err
-		}
-		return b, "application/json", nil
 	default:
 		return nil, "", nil
 	}
