@@ -273,18 +273,18 @@ func RetrieveStatus(ctx context.Context, d Doer, jobID string, out *models.JobSt
 	return d.Do(ctx, r, out)
 }
 
-// Replay builds and sends POST /v3/replay/{job_id} with an optional JSON body.
+// Replay builds and sends POST /v3/replay/{job_id}. A callback override is
+// sent as a multipart body with one callback_url text part; with no override
+// no body is sent at all.
 func Replay(ctx context.Context, d Doer, jobID string, p models.ReplayParams, out *models.ReplayCallbackResponse) error {
-	body := map[string]interface{}{}
-	if p.CallbackURL != nil {
-		body["callback_url"] = *p.CallbackURL
-	}
 	r := &Request{
 		Method:        "POST",
 		Path:          "/v3/replay/" + url.PathEscape(jobID),
 		Authenticated: true,
-		BodyKind:      BodyJSON,
-		JSONBody:      body,
+	}
+	if p.CallbackURL != nil {
+		r.BodyKind = BodyMultipart
+		r.scalar("callback_url", *p.CallbackURL)
 	}
 	return d.Do(ctx, r, out)
 }
