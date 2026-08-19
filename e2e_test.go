@@ -7,10 +7,11 @@ import (
 	"time"
 )
 
-// TestE2EEnhancedKYCSandbox submits a real Enhanced KYC job to the sandbox and
-// polls it to completion. It skips (does not fail) unless SMILE_PARTNER_ID and
-// SMILE_API_KEY are set. It uses the documented sandbox "clear" identity,
-// which the sandbox matches on given names, last name and email.
+// TestE2EEnhancedKYCSandbox submits a real Enhanced KYC job and polls it to
+// completion. It skips (does not fail) unless SMILE_PARTNER_ID and
+// SMILE_API_KEY are set. It targets the sandbox unless SMILE_BASE_URL points it
+// somewhere else. It uses the documented "clear" identity, which
+// non-production environments match on given names, last name and email.
 //
 // The credential values are never printed or logged.
 func TestE2EEnhancedKYCSandbox(t *testing.T) {
@@ -20,14 +21,19 @@ func TestE2EEnhancedKYCSandbox(t *testing.T) {
 		t.Skip("set SMILE_PARTNER_ID and SMILE_API_KEY to run the sandbox end-to-end test")
 	}
 
-	client, err := NewClient(Config{
+	cfg := Config{
 		PartnerID:   partnerID,
 		APIKey:      apiKey,
 		Environment: Sandbox,
-	})
+	}
+	if baseURL := os.Getenv("SMILE_BASE_URL"); baseURL != "" {
+		cfg.BaseURL = baseURL
+	}
+	client, err := NewClient(cfg)
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}
+	t.Logf("base URL: %s", client.cfg.baseURL)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
@@ -35,7 +41,7 @@ func TestE2EEnhancedKYCSandbox(t *testing.T) {
 	accepted, err := client.EnhancedKYC.Verify(ctx, EnhancedKYCParams{
 		Country:  "NG",
 		IDType:   "NIN",
-		IDNumber: "00000000000",
+		IDNumber: "12345678901",
 		UserDetails: UserDetails{
 			GivenNames: "Amina Fatou",
 			LastName:   "Clearwater",
@@ -60,7 +66,10 @@ func TestE2EEnhancedKYCSandbox(t *testing.T) {
 	if err != nil {
 		t.Fatalf("WaitUntilComplete: %v", err)
 	}
-	if final.Status != "complete" {
-		t.Fatalf("final status = %q, want complete", final.Status)
+	if !final.IsComplete() {
+		t.Fatalf("final status = %q, want a terminal decision", final.Status)
+	}
+	if final.Status != "clear" {
+		t.Fatalf("final status = %q, want clear for the Clearwater identity", final.Status)
 	}
 }

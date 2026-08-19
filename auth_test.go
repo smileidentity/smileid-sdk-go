@@ -21,7 +21,7 @@ func TestTokenCachedUntilExpiry(t *testing.T) {
 		}
 		atomic.AddInt32(&opCalls, 1)
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"status":"complete","job_id":"job_x"}`)
+		fmt.Fprint(w, `{"status":"clear","job_id":"job_x","message":"Job completed"}`)
 	})
 
 	for i := 0; i < 3; i++ {
@@ -52,14 +52,14 @@ func TestTokenRefreshOn401ThenSuccess(t *testing.T) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"status":"complete","job_id":"job_x"}`)
+		fmt.Fprint(w, `{"status":"clear","job_id":"job_x","message":"Job completed"}`)
 	})
 
 	js, err := c.Verifications.Retrieve(context.Background(), "job_x")
 	if err != nil {
 		t.Fatalf("Retrieve: %v", err)
 	}
-	if js.Status != "complete" {
+	if js.Status != "clear" {
 		t.Errorf("status = %q", js.Status)
 	}
 	if got := atomic.LoadInt32(&opCalls); got != 2 {
@@ -135,7 +135,7 @@ func TestTokenEndpointReceivesLowercaseCredentialHeaders(t *testing.T) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"status":"complete","job_id":"job_x"}`)
+		fmt.Fprint(w, `{"status":"clear","job_id":"job_x","message":"Job completed"}`)
 	})
 
 	if _, err := c.Verifications.Retrieve(context.Background(), "job_x"); err != nil {
@@ -153,7 +153,7 @@ func TestConcurrentCallsDoNotStampedeToken(t *testing.T) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"status":"complete","job_id":"job_x"}`)
+		fmt.Fprint(w, `{"status":"clear","job_id":"job_x","message":"Job completed"}`)
 	})
 
 	var wg sync.WaitGroup

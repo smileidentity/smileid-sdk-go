@@ -43,9 +43,16 @@ export SMILE_API_KEY="..."
 export SMILE_CALLBACK_URL="https://your-app.example.com/smile-callback"
 ```
 
+Partner ids are displayed zero-padded (for example 002) but must be passed without leading zeros (2).
+
+`SMILE_BASE_URL` overrides the SDK environment URL. The SDK only names two environments, sandbox and production, so point it at any other host explicitly:
+
+```bash
+export SMILE_BASE_URL="https://devapi.smileidentity.com"
+```
+
 Optional variables:
 
-- `SMILE_BASE_URL` overrides the SDK environment URL.
 - `SMILE_TIMEOUT` sets the per-request timeout, for example `30s`.
 
 The same values can be passed as global flags:
@@ -70,11 +77,13 @@ go run ./cmd/smileid-example-go \
   --country NG \
   --id-type NIN \
   --id-number 12345678901 \
-  --given-names Amina \
-  --last-name Okafor \
-  --email amina@example.com \
+  --given-names "Amina Fatou" \
+  --last-name Clearwater \
+  --email amina.clearwater@example.com \
   --privacy-url https://your-app.example.com/privacy
 ```
+
+Non-production environments match test identities on given names, last name and email. That identity resolves to `clear`; an unrecognised identity resolves to `block`.
 
 Retrieve status:
 

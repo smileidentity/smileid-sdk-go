@@ -34,6 +34,8 @@ if err != nil {
 }
 ```
 
+Partner ids are displayed zero-padded (for example 002) but must be passed without leading zeros (2).
+
 Keep your API key out of source control. Read it from the environment or a secret manager.
 
 ## Environment selection
@@ -50,10 +52,19 @@ client, err := usesmileid.NewClient(usesmileid.Config{
 
 `Environment` accepts only `usesmileid.Sandbox` or `usesmileid.Production` (or the empty zero value, which means sandbox); anything else fails at construction.
 
+Those are the only two named environments. To reach any other host, such as devapi, set `BaseURL`. It wins over `Environment`.
+
+```go
+client, err := usesmileid.NewClient(usesmileid.Config{
+    PartnerID: "2",
+    APIKey:    os.Getenv("SMILE_API_KEY"),
+    BaseURL:   "https://devapi.smileidentity.com",
+})
+```
+
 `Config` also accepts:
 
 - `DefaultCallbackURL` — used when a call omits a callback URL.
-- `BaseURL` — an explicit override that wins over `Environment`.
 - `Timeout` — the per-request timeout (default 30s), enforced through the context.
 - `MaxRetries` — retries for idempotent operations (default 2; a negative value disables them).
 - `HTTPClient` — an injected `*http.Client` for testing or proxies.
@@ -77,6 +88,8 @@ userDetails := usesmileid.UserDetails{
     Email:      usesmileid.String("amina.clearwater@example.com"),
 }
 ```
+
+Non-production environments match test identities on given names, last name and email. The identity above resolves to `clear`; an unrecognised identity resolves to `block`.
 
 `usesmileid.String`, `usesmileid.Bool`, `usesmileid.Float64` and the generic `usesmileid.Ptr` return pointers for the optional fields on params structs.
 
@@ -200,7 +213,10 @@ if err != nil {
     log.Fatal(err)
 }
 fmt.Println(status.Status, status.Message)
+// clear Job completed
 ```
+
+`Status` is `processing` while the job runs, `not_found` for an unknown job, and otherwise the decision itself: `clear`, `block`, `attention` or `error`. `Message` is human-readable text, not the decision. `status.IsComplete()` reports whether the job reached a decision.
 
 ### Wait for completion
 
@@ -210,6 +226,8 @@ status, err := client.Verifications.WaitUntilComplete(ctx, "job_...", usesmileid
     Timeout:  60 * time.Second,
 })
 ```
+
+`WaitUntilComplete` polls while the status is `processing` and returns as soon as the job reaches a decision, whichever one it is.
 
 `WaitOptions` defaults to a 2s interval, a 60s timeout, and treating a not-found job as still pending. Set `TreatNotFoundAsPending: usesmileid.Bool(false)` to return a not-found status straight away. On timeout the method returns a `*usesmileid.TimeoutError`.
 
