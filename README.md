@@ -52,13 +52,13 @@ client, err := usesmileid.NewClient(usesmileid.Config{
 
 `Environment` accepts only `usesmileid.Sandbox` or `usesmileid.Production` (or the empty zero value, which means sandbox); anything else fails at construction.
 
-Those are the only two named environments. To reach any other host, such as devapi, set `BaseURL`. It wins over `Environment`.
+Those are the only two named environments. To reach any other host, set `BaseURL`. It wins over `Environment`.
 
 ```go
 client, err := usesmileid.NewClient(usesmileid.Config{
     PartnerID: "2",
     APIKey:    os.Getenv("SMILE_API_KEY"),
-    BaseURL:   "https://devapi.smileidentity.com",
+    BaseURL:   "https://your-environment.example.com",
 })
 ```
 
