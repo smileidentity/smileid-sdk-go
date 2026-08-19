@@ -52,7 +52,7 @@ func TestWaitUntilCompleteProcessingThenTerminalDecision(t *testing.T) {
 }
 
 func TestIsCompleteIsFalseWhilePending(t *testing.T) {
-	for _, status := range []string{"processing", "not_found", ""} {
+	for _, status := range []string{"processing", "not_found", "", "Processing", " NOT_FOUND "} {
 		if (JobStatus{Status: status}).IsComplete() {
 			t.Errorf("IsComplete() = true for status %q", status)
 		}

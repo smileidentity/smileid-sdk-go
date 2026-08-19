@@ -60,7 +60,7 @@ type JobStatus struct {
 // IsComplete reports whether the job reached a terminal decision, that is any
 // status other than "processing" and "not_found".
 func (s JobStatus) IsComplete() bool {
-	switch s.Status {
+	switch strings.ToLower(strings.TrimSpace(s.Status)) {
 	case "", "processing", "not_found":
 		return false
 	default:
