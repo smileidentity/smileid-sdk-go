@@ -12,8 +12,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: e2e-${{ github.ref }}
-  cancel-in-progress: true
+  group: e2e-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
 
 jobs:
   e2e:
@@ -32,8 +32,12 @@ jobs:
           SMILE_BASE_URL: ${{ secrets.SMILE_E2E_BASE_URL }}
         run: |
           set -o pipefail
-          go test -run TestE2EEnhancedKYCSandbox -v ./... | tee e2e-output.log
+          if [ -z "${SMILE_PARTNER_ID}" ] || [ -z "${SMILE_API_KEY}" ]; then
+            echo "::error::SMILE_PARTNER_ID and SMILE_API_KEY secrets must be set on this repo for the live e2e workflow"
+            exit 1
+          fi
+          go test -count=1 -timeout 8m -run TestE2EEnhancedKYCSandbox -v ./... | tee e2e-output.log
           if ! grep -q -- '--- PASS: TestE2EEnhancedKYCSandbox' e2e-output.log; then
-            echo "::error::TestE2EEnhancedKYCSandbox did not report PASS (it likely skipped) — check that SMILE_PARTNER_ID and SMILE_API_KEY secrets are set on this repo"
+            echo "::error::TestE2EEnhancedKYCSandbox did not report PASS (it likely skipped)"
             exit 1
           fi
