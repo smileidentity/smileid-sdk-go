@@ -48,7 +48,7 @@ Partner ids are displayed zero-padded (for example 002) but must be passed witho
 `SMILE_BASE_URL` overrides the SDK environment URL. The SDK only names two environments, sandbox and production, so point it at any other host explicitly:
 
 ```bash
-export SMILE_BASE_URL="https://devapi.smileidentity.com"
+export SMILE_BASE_URL="https://your-environment.example.com"
 ```
 
 Optional variables:

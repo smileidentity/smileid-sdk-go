@@ -1,0 +1,43 @@
+name: e2e
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '47 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    if: github.repository == 'smileidentity/smileid-sdk-go'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+      - name: Run live sandbox e2e test
+        env:
+          SMILE_PARTNER_ID: ${{ secrets.SMILE_PARTNER_ID }}
+          SMILE_API_KEY: ${{ secrets.SMILE_API_KEY }}
+          SMILE_BASE_URL: ${{ secrets.SMILE_E2E_BASE_URL }}
+        run: |
+          set -o pipefail
+          if [ -z "${SMILE_PARTNER_ID}" ] || [ -z "${SMILE_API_KEY}" ]; then
+            echo "::error::SMILE_PARTNER_ID and SMILE_API_KEY secrets must be set on this repo for the live e2e workflow"
+            exit 1
+          fi
+          go test -count=1 -timeout 8m -run TestE2EEnhancedKYCSandbox -v ./... | tee e2e-output.log
+          if ! grep -q -- '--- PASS: TestE2EEnhancedKYCSandbox' e2e-output.log; then
+            echo "::error::TestE2EEnhancedKYCSandbox did not report PASS (it likely skipped)"
+            exit 1
+          fi
