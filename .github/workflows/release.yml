@@ -25,11 +25,20 @@ jobs:
             exit 1
           fi
           TAG_MAJOR="${BASH_REMATCH[1]}"
-          MODULE=$(awk 'NR==1{print $2}' go.mod)
-          # A module path only carries a /vN suffix for major version 2+; v0/v1 have none.
-          MODULE_MAJOR=$(echo "$MODULE" | grep -oE '/v[0-9]+$' | grep -oE '[0-9]+' || echo 1)
-          if [ "$TAG_MAJOR" != "$MODULE_MAJOR" ]; then
-            echo "::error::Tag major version v$TAG_MAJOR does not match module path '$MODULE' (expected v$MODULE_MAJOR.x.y). A mismatched tag would break consumers importing that major version."
+          MODULE=$(awk '$1=="module"{print $2; exit}' go.mod)
+          if [ -z "$MODULE" ]; then
+            echo "::error::Could not find a 'module' directive in go.mod"
+            exit 1
+          fi
+          # A module path only carries a /vN suffix for major version 2+; v0 and v1 have none.
+          MODULE_SUFFIX=$(echo "$MODULE" | grep -oE '/v[0-9]+$' | grep -oE '[0-9]+' || true)
+          if [ -n "$MODULE_SUFFIX" ]; then
+            if [ "$TAG_MAJOR" != "$MODULE_SUFFIX" ]; then
+              echo "::error::Tag major version v$TAG_MAJOR does not match module path '$MODULE' (expected v$MODULE_SUFFIX.x.y). A mismatched tag would break consumers importing that major version."
+              exit 1
+            fi
+          elif [ "$TAG_MAJOR" != "0" ] && [ "$TAG_MAJOR" != "1" ]; then
+            echo "::error::Tag major version v$TAG_MAJOR requires module path '$MODULE' to end with /v$TAG_MAJOR. A mismatched tag would break consumers importing that major version."
             exit 1
           fi
 
@@ -58,5 +67,5 @@ jobs:
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release $TAG already exists, skipping creation."
           else
-            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --generate-notes
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --generate-notes --verify-tag
           fi
