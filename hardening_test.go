@@ -144,7 +144,7 @@ func TestGoldenJobIDStaysByteIdentical(t *testing.T) {
 		}
 		rawURI = r.RequestURI
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"status":"complete","job_id":"job_01h8x9y2z3a4b5c6d7e8f9g0h1"}`)
+		fmt.Fprint(w, `{"status":"clear","job_id":"job_01h8x9y2z3a4b5c6d7e8f9g0h1","message":"Job completed"}`)
 	})
 
 	if _, err := c.Verifications.Retrieve(context.Background(), "job_01h8x9y2z3a4b5c6d7e8f9g0h1"); err != nil {

@@ -46,13 +46,26 @@ func (r AcceptedResponse) IsAccepted() bool {
 	return strings.EqualFold(r.Status, "accepted")
 }
 
-// JobStatus is returned by GET /v3/status/{jobId}. The terminal sub-state
-// (clear/block/attention/error) appears only in Message, not as a field.
+// JobStatus is returned by GET /v3/status/{jobId}. Status is "processing"
+// while the job runs, "not_found" for an unknown job, and otherwise the
+// terminal decision itself: "clear", "block", "attention" or "error". Message
+// is human-readable text ("Job completed" on a finished job), not the decision.
 type JobStatus struct {
 	Status  string `json:"status"`
 	JobID   string `json:"job_id"`
 	UserID  string `json:"user_id"`
 	Message string `json:"message"`
+}
+
+// IsComplete reports whether the job reached a terminal decision, that is any
+// status other than "processing" and "not_found".
+func (s JobStatus) IsComplete() bool {
+	switch strings.ToLower(strings.TrimSpace(s.Status)) {
+	case "", "processing", "not_found":
+		return false
+	default:
+		return true
+	}
 }
 
 // BankCode is one entry in a BankCodesResponse.

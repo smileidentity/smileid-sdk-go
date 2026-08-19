@@ -333,11 +333,15 @@ func encodeJSON(w io.Writer, value any) error {
 func printUsage(w io.Writer) {
 	fmt.Fprintln(w, `Usage:
   smileid-example-go [global flags] services --country NG
-  smileid-example-go [global flags] enhanced-kyc --country NG --id-type NIN --id-number 12345678901 --given-names Amina --last-name Okafor --email amina@example.com --privacy-url https://example.com/privacy
+  smileid-example-go [global flags] enhanced-kyc --country NG --id-type NIN --id-number 12345678901 --given-names "Amina Fatou" --last-name Clearwater --email amina.clearwater@example.com --privacy-url https://example.com/privacy
   smileid-example-go [global flags] status --job-id job_...
   smileid-example-go [global flags] replay --job-id job_... --callback-url https://example.com/webhook
 
-Global flags can also be set with SMILE_PARTNER_ID, SMILE_API_KEY, SMILE_BASE_URL, SMILE_CALLBACK_URL and SMILE_TIMEOUT.`)
+Global flags can also be set with SMILE_PARTNER_ID, SMILE_API_KEY, SMILE_BASE_URL, SMILE_CALLBACK_URL and SMILE_TIMEOUT.
+
+Partner ids are displayed zero-padded (for example 002) but must be passed without leading zeros (2).
+Non-production environments match test identities on given names, last name and email. An unrecognised
+identity resolves to block.`)
 }
 
 type cliUsageError string

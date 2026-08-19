@@ -103,8 +103,8 @@ func TestStatusCommandRetrievesJob(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
 		t.Fatalf("decode output: %v\n%s", err, out.String())
 	}
-	if got.Status != "complete" || got.Message != "clear" {
-		t.Fatalf("status output = %+v, want complete clear", got)
+	if got.Status != "clear" || got.Message != "Job completed" {
+		t.Fatalf("status output = %+v, want clear", got)
 	}
 }
 
@@ -253,7 +253,7 @@ func newFakeSmileServer(t *testing.T) *fakeSmileServer {
 	mux.HandleFunc("/v3/status/job_enhanced_123", func(w http.ResponseWriter, r *http.Request) {
 		assertBearerToken(t, r)
 		writeJSON(t, w, http.StatusOK, map[string]string{
-			"status": "complete", "job_id": "job_enhanced_123", "user_id": "user_123", "message": "clear",
+			"status": "clear", "job_id": "job_enhanced_123", "user_id": "user_123", "message": "Job completed",
 		})
 	})
 	mux.HandleFunc("/v3/replay/job_enhanced_123", func(w http.ResponseWriter, r *http.Request) {

@@ -109,10 +109,12 @@ type WaitOptions struct {
 	TreatNotFoundAsPending *bool
 }
 
-// WaitUntilComplete polls Verifications.Retrieve until the job completes,
-// returning the terminal JobStatus. It returns a *TimeoutError if the timeout
-// elapses first. If TreatNotFoundAsPending is false it returns a not_found
-// status instead of continuing to poll.
+// WaitUntilComplete polls Verifications.Retrieve until the job reaches a
+// terminal decision — any status other than "processing" and "not_found", so
+// "clear", "block", "attention" or "error" — and returns that JobStatus. It
+// returns a *TimeoutError if the timeout elapses first. If
+// TreatNotFoundAsPending is false it returns a not_found status instead of
+// continuing to poll.
 func (r *VerificationsResource) WaitUntilComplete(ctx context.Context, jobID string, opts WaitOptions) (*JobStatus, error) {
 	interval := opts.Interval
 	if interval <= 0 {
@@ -146,7 +148,7 @@ func (r *VerificationsResource) WaitUntilComplete(ctx context.Context, jobID str
 			}
 			return nil, err
 		}
-		if js.Status == "complete" {
+		if js.IsComplete() {
 			return js, nil
 		}
 		if js.Status == "not_found" && !treatNotFoundAsPending {
