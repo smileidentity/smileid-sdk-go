@@ -53,4 +53,4 @@ jobs:
         with:
           # Keep in step with the runner's stable Go: an older binary panics
           # in go/types when the toolchain stdlib is newer than it understands.
-          version: v2.12.2
+          version: v2.13.0
