@@ -41,6 +41,15 @@ jobs:
             echo "::error::Tag major version v$TAG_MAJOR requires module path '$MODULE' to end with /v$TAG_MAJOR. A mismatched tag would break consumers importing that major version."
             exit 1
           fi
+      - name: Verify CHANGELOG.md has an entry for this version
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          if ! grep -qE "^## \[${VERSION//./\\.}\] - [0-9]{4}-[0-9]{2}-[0-9]{2}" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no dated '## [$VERSION] - YYYY-MM-DD' heading for tag '$TAG'"
+            exit 1
+          fi
 
   # Reuse the same build/test/gofmt/vet/lint job the test workflow runs on
   # every push, so a release never ships code that hasn't passed CI.
