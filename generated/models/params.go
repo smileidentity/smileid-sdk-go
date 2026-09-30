@@ -33,6 +33,25 @@ type DocumentVerificationParams struct {
 	UserID         *string // routed to the User-ID header
 }
 
+// ResidencyDocumentVerificationParams holds the request fields for residency
+// document verification (POST /v3/residency_document_verification). Visa is
+// required and IDType must be "PASSPORT".
+type ResidencyDocumentVerificationParams struct {
+	SelfieImage    *BinaryInput
+	LivenessImages []*BinaryInput
+	Document       *BinaryInput
+	DocumentBack   *BinaryInput
+	Visa           *BinaryInput
+	Consent        Consent
+	Country        string
+	IDType         string
+	UserDetails    UserDetails
+	CallbackURL    *string
+	PartnerParams  map[string]string
+	Metadata       []MetadataEntry
+	UserID         *string // routed to the User-ID header
+}
+
 // BiometricKYCParams holds the request fields for biometric KYC verification.
 type BiometricKYCParams struct {
 	SelfieImage    *BinaryInput

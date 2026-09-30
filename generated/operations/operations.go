@@ -137,6 +137,19 @@ func EnhancedDocumentVerification(ctx context.Context, d Doer, p models.Document
 	return d.Do(ctx, r, out)
 }
 
+// ResidencyDocumentVerification builds and sends POST /v3/residency_document_verification.
+func ResidencyDocumentVerification(ctx context.Context, d Doer, p models.ResidencyDocumentVerificationParams, out *models.AcceptedResponse) error {
+	r := &Request{Method: "POST", Path: "/v3/residency_document_verification", Authenticated: true, NeedsPartnerIDHeader: true, BodyKind: BodyMultipart}
+	buildDocParts(r, models.DocumentVerificationParams{
+		SelfieImage: p.SelfieImage, LivenessImages: p.LivenessImages, Document: p.Document,
+		DocumentBack: p.DocumentBack, Consent: p.Consent, Country: p.Country, IDType: &p.IDType,
+		UserDetails: p.UserDetails, CallbackURL: p.CallbackURL, PartnerParams: p.PartnerParams,
+		Metadata: p.Metadata, UserID: p.UserID,
+	})
+	r.binary("visa", p.Visa)
+	return d.Do(ctx, r, out)
+}
+
 func buildDocParts(r *Request, p models.DocumentVerificationParams) {
 	r.scalar("country", p.Country)
 	if p.IDType != nil {

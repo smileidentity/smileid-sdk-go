@@ -256,3 +256,22 @@ func assertScalar(t *testing.T, parts []capturedPart, name, want string) {
 		t.Errorf("scalar %q = %q, want %q", name, p.content, want)
 	}
 }
+
+func TestResidencyDocumentVerificationMultipart(t *testing.T) {
+	var cap captured
+	c := testClient(t, captureHandler(&cap, http.StatusAccepted, `{"status":"accepted","job_id":"job_x","user_id":"user_x"}`))
+
+	if _, err := c.Documents.VerifyResidency(context.Background(), residencyParams()); err != nil {
+		t.Fatalf("VerifyResidency: %v", err)
+	}
+	if cap.path != "/v3/residency_document_verification" {
+		t.Errorf("path = %q", cap.path)
+	}
+	parts := parseMultipart(t, cap.contentType, cap.body)
+	if p := onePart(t, parts, "visa"); p.contentType != "image/jpeg" || p.filename == "" {
+		t.Errorf("visa part = %q %q", p.contentType, p.filename)
+	}
+	if p := onePart(t, parts, "id_type"); string(p.content) != "PASSPORT" {
+		t.Errorf("id_type = %s", p.content)
+	}
+}

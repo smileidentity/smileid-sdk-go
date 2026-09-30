@@ -31,7 +31,8 @@ func (r *EnhancedKYCResource) Verify(ctx context.Context, params EnhancedKYCPara
 	return &out, nil
 }
 
-// DocumentsResource covers document verification and enhanced document verification.
+// DocumentsResource covers document verification, enhanced document
+// verification and residency document verification.
 type DocumentsResource struct{ c *Client }
 
 // Verify submits a document verification (POST /v3/document_verification).
@@ -51,6 +52,36 @@ func (r *DocumentsResource) Verify(ctx context.Context, params DocumentVerificat
 
 	var out AcceptedResponse
 	if err := operations.DocumentVerification(ctx, r.c.transport, params, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// VerifyResidency submits a residency document verification
+// (POST /v3/residency_document_verification). id_type must be PASSPORT and
+// the visa image is required.
+func (r *DocumentsResource) VerifyResidency(ctx context.Context, params ResidencyDocumentVerificationParams, opts ...RequestOption) (*AcceptedResponse, error) {
+	ro := resolveOptions(opts)
+	if params.IDType != "PASSPORT" {
+		return nil, validationErrorf("id_type must be PASSPORT for residency document verification")
+	}
+	if params.Visa == nil {
+		return nil, validationErrorf("visa is required for residency document verification")
+	}
+	if err := validateUserDetails(params.UserDetails); err != nil {
+		return nil, err
+	}
+	cb, err := r.c.resolveCallback(params.CallbackURL, ro)
+	if err != nil {
+		return nil, err
+	}
+	params.CallbackURL = cb
+
+	ctx, cancel := r.c.withTimeout(ctx, ro)
+	defer cancel()
+
+	var out AcceptedResponse
+	if err := operations.ResidencyDocumentVerification(ctx, r.c.transport, params, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

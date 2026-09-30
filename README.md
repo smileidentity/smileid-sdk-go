@@ -152,6 +152,23 @@ accepted, err := client.Documents.VerifyEnhanced(ctx, usesmileid.DocumentVerific
 })
 ```
 
+### Residency document verification
+
+`VerifyResidency` reads the visa endorsed in a passport. `IDType` must be `PASSPORT` and `Visa` is required. `country` and `id_type` can instead be bound to the token at `/v3/token`; the SDK does not mint those tokens, so pass both here.
+
+```go
+accepted, err := client.Documents.VerifyResidency(ctx, usesmileid.ResidencyDocumentVerificationParams{
+    Country:        "ZA",
+    IDType:         "PASSPORT",
+    SelfieImage:    usesmileid.FromFile("selfie.jpg"),
+    LivenessImages: liveness,
+    Document:       usesmileid.FromFile("passport.jpg"),
+    Visa:           usesmileid.FromFile("visa.jpg"),
+    UserDetails:    userDetails,
+    Consent:        consent,
+})
+```
+
 ### Biometric KYC
 
 ```go
