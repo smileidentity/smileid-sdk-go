@@ -58,10 +58,13 @@ func (r *DocumentsResource) Verify(ctx context.Context, params DocumentVerificat
 }
 
 // VerifyResidency submits a residency document verification
-// (POST /v3/residency_document_verification). id_type must be PASSPORT and
-// the visa image is required.
+// (POST /v3/residency_document_verification). id_type defaults to PASSPORT, any
+// other value is rejected, and the visa image is required.
 func (r *DocumentsResource) VerifyResidency(ctx context.Context, params ResidencyDocumentVerificationParams, opts ...RequestOption) (*AcceptedResponse, error) {
 	ro := resolveOptions(opts)
+	if params.IDType == "" {
+		params.IDType = "PASSPORT"
+	}
 	if params.IDType != "PASSPORT" {
 		return nil, validationErrorf("id_type must be PASSPORT for residency document verification")
 	}

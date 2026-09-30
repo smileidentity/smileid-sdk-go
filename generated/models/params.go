@@ -35,7 +35,7 @@ type DocumentVerificationParams struct {
 
 // ResidencyDocumentVerificationParams holds the request fields for residency
 // document verification (POST /v3/residency_document_verification). Visa is
-// required and IDType must be "PASSPORT".
+// required. IDType defaults to "PASSPORT" when empty; any other value is rejected.
 type ResidencyDocumentVerificationParams struct {
 	SelfieImage    *BinaryInput
 	LivenessImages []*BinaryInput
