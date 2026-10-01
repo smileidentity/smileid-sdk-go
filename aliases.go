@@ -24,20 +24,21 @@ type (
 	ReplayCallbackResponse     = models.ReplayCallbackResponse
 	ReportUserFraudResponse    = models.ReportUserFraudResponse
 
-	EnhancedKYCParams          = models.EnhancedKYCParams
-	DocumentVerificationParams = models.DocumentVerificationParams
-	BiometricKYCParams         = models.BiometricKYCParams
-	RegistrationParams         = models.RegistrationParams
-	AuthenticationParams       = models.AuthenticationParams
-	CompareParams              = models.CompareParams
-	ReplayParams               = models.ReplayParams
-	ReportFraudParams          = models.ReportFraudParams
-	FlagFraudParams            = models.FlagFraudParams
-	ClearFraudParams           = models.ClearFraudParams
-	IDStatusParams             = models.IDStatusParams
-	BankCodesParams            = models.BankCodesParams
-	SupportedIDTypesParams     = models.SupportedIDTypesParams
-	SupportedDocumentsParams   = models.SupportedDocumentsParams
+	EnhancedKYCParams                   = models.EnhancedKYCParams
+	DocumentVerificationParams          = models.DocumentVerificationParams
+	BiometricKYCParams                  = models.BiometricKYCParams
+	ResidencyDocumentVerificationParams = models.ResidencyDocumentVerificationParams
+	RegistrationParams                  = models.RegistrationParams
+	AuthenticationParams                = models.AuthenticationParams
+	CompareParams                       = models.CompareParams
+	ReplayParams                        = models.ReplayParams
+	ReportFraudParams                   = models.ReportFraudParams
+	FlagFraudParams                     = models.FlagFraudParams
+	ClearFraudParams                    = models.ClearFraudParams
+	IDStatusParams                      = models.IDStatusParams
+	BankCodesParams                     = models.BankCodesParams
+	SupportedIDTypesParams              = models.SupportedIDTypesParams
+	SupportedDocumentsParams            = models.SupportedDocumentsParams
 )
 
 // Binary input constructors, re-exported from the generated package.

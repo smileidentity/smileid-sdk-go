@@ -105,3 +105,29 @@ func TestReportFraudConditionalRules(t *testing.T) {
 		})
 	}
 }
+
+func residencyParams() ResidencyDocumentVerificationParams {
+	return ResidencyDocumentVerificationParams{
+		Country:        "ZA",
+		IDType:         "PASSPORT",
+		SelfieImage:    FromBytes(jpegBytes, "s.jpg"),
+		LivenessImages: livenessSet(6),
+		Document:       FromBytes(jpegBytes, "d.jpg"),
+		Visa:           FromBytes(jpegBytes, "v.jpg"),
+		UserDetails:    validUserDetails(),
+		Consent:        validConsent(),
+	}
+}
+
+func TestVerifyResidencyRequiresPassportAndVisa(t *testing.T) {
+	c := failingClient(t)
+	p := residencyParams()
+	p.IDType = "NATIONAL_ID"
+	_, err := c.Documents.VerifyResidency(context.Background(), p)
+	assertValidationError(t, err)
+
+	p = residencyParams()
+	p.Visa = nil
+	_, err = c.Documents.VerifyResidency(context.Background(), p)
+	assertValidationError(t, err)
+}
