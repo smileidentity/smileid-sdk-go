@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [12.1.0] - 2026-10-01
+
 ### Added
 
 - Residency document verification: `client.Documents.VerifyResidency`. `IDType` defaults to `PASSPORT`.
@@ -32,5 +34,6 @@ First public release.
 - Automatic retries with exponential backoff for idempotent calls.
 - Zero runtime dependencies beyond the Go standard library.
 
-[Unreleased]: https://github.com/smileidentity/smileid-sdk-go/compare/v12.0.0...HEAD
+[Unreleased]: https://github.com/smileidentity/smileid-sdk-go/compare/v12.1.0...HEAD
+[12.1.0]: https://github.com/smileidentity/smileid-sdk-go/compare/v12.0.0...v12.1.0
 [12.0.0]: https://github.com/smileidentity/smileid-sdk-go/releases/tag/v12.0.0
