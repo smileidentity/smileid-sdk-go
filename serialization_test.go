@@ -36,10 +36,10 @@ func TestEnhancedKYCGoldenRequest(t *testing.T) {
 	if got := cap.header.Get("SmileID-Source-SDK"); got != "go" {
 		t.Errorf("SmileID-Source-SDK = %q", got)
 	}
-	if got := cap.header.Get("SmileID-Source-SDK-Version"); got != "12.0.0" {
+	if got := cap.header.Get("SmileID-Source-SDK-Version"); got != "12.1.0" {
 		t.Errorf("SmileID-Source-SDK-Version = %q", got)
 	}
-	if ua := cap.header.Get("User-Agent"); !strings.HasPrefix(ua, "smileid-sdk-go/12.0.0 (go/") {
+	if ua := cap.header.Get("User-Agent"); !strings.HasPrefix(ua, "smileid-sdk-go/12.1.0 (go/") {
 		t.Errorf("User-Agent = %q", ua)
 	}
 	// Auth token injected; no Partner-ID header for enhanced_kyc.

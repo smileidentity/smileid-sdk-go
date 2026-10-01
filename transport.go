@@ -22,7 +22,7 @@ import (
 
 const (
 	sdkName    = "go"
-	sdkVersion = "12.0.0"
+	sdkVersion = "12.1.0"
 
 	timestampLayout = "2006-01-02T15:04:05.000Z"
 )
