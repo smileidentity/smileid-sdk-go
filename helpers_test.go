@@ -2,7 +2,6 @@ package usesmileid
 
 import (
 	"bytes"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"mime"
@@ -18,14 +17,6 @@ var (
 	jpegBytes = []byte{0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 'J', 'F', 'I', 'F'}
 	pngBytes  = []byte{0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x01}
 )
-
-// fakeJWT builds an unsigned JWT whose payload carries the given exp claim.
-func fakeJWT(exp time.Time) string {
-	enc := func(b []byte) string { return base64.RawURLEncoding.EncodeToString(b) }
-	header := enc([]byte(`{"alg":"none","typ":"JWT"}`))
-	payload := enc([]byte(fmt.Sprintf(`{"exp":%d}`, exp.Unix())))
-	return header + "." + payload + ".sig"
-}
 
 // captured records the details of a request the test server received.
 type captured struct {
@@ -56,10 +47,10 @@ func testClient(t *testing.T, handler http.HandlerFunc) *Client {
 	return c
 }
 
-// serveToken writes a valid token response with an hour of life.
+// serveToken writes a valid token response.
 func serveToken(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, `{"token":%q}`, fakeJWT(time.Now().Add(time.Hour)))
+	fmt.Fprint(w, `{"token":"test-token"}`)
 }
 
 // captureHandler serves the token endpoint and records any other request,
@@ -151,4 +142,9 @@ func livenessSet(n int) []*BinaryInput {
 		imgs[i] = FromBytes(jpegBytes, fmt.Sprintf("live%d.jpg", i))
 	}
 	return imgs
+}
+
+func readBody(r *http.Request) []byte {
+	b, _ := io.ReadAll(r.Body)
+	return b
 }

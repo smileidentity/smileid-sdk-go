@@ -53,19 +53,22 @@ type ResidencyDocumentVerificationParams struct {
 }
 
 // BiometricKYCParams holds the request fields for biometric KYC verification.
+// SelfieImage and LivenessImages are required unless UseEnrolledImage is true,
+// which verifies against the enrolled selfie of UserID (then required).
 type BiometricKYCParams struct {
-	SelfieImage    *BinaryInput
-	LivenessImages []*BinaryInput
-	Consent        Consent
-	Country        string
-	IDType         string
-	IDNumber       string
-	UserDetails    UserDetails
-	CallbackURL    *string
-	SandboxResult  *float64
-	PartnerParams  map[string]string
-	Metadata       []MetadataEntry
-	UserID         *string // routed to the User-ID header
+	SelfieImage      *BinaryInput
+	LivenessImages   []*BinaryInput
+	UseEnrolledImage bool
+	Consent          Consent
+	Country          string
+	IDType           string
+	IDNumber         string
+	UserDetails      UserDetails
+	CallbackURL      *string
+	SandboxResult    *float64
+	PartnerParams    map[string]string
+	Metadata         []MetadataEntry
+	UserID           *string // routed to the User-ID header
 }
 
 // RegistrationParams holds the request fields for biometric enrollment.
@@ -84,18 +87,16 @@ type RegistrationParams struct {
 
 // AuthenticationParams holds the request fields for biometric authentication.
 // UserID is required and routed to the request body (not the User-ID header).
-// SelfieImage and LivenessImages are required unless UseEnrolledImage is true.
 type AuthenticationParams struct {
-	UserID           string
-	SelfieImage      *BinaryInput
-	LivenessImages   []*BinaryInput
-	Consent          Consent
-	UserDetails      UserDetails
-	UseEnrolledImage *bool
-	CallbackURL      *string
-	SandboxResult    *float64
-	PartnerParams    map[string]string
-	Metadata         []MetadataEntry
+	UserID         string
+	SelfieImage    *BinaryInput
+	LivenessImages []*BinaryInput
+	Consent        Consent
+	UserDetails    UserDetails
+	CallbackURL    *string
+	SandboxResult  *float64
+	PartnerParams  map[string]string
+	Metadata       []MetadataEntry
 }
 
 // CompareParams holds the request fields for the smart selfie compare

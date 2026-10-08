@@ -23,7 +23,7 @@
 //		Consent: usesmileid.GrantConsent(time.Now(), "EN", "https://example.com/privacy"),
 //	})
 //
-// Authentication is internal: the SDK fetches and caches a JWT and never
-// exposes it. The client defaults to the sandbox environment. Errors are a
+// Authentication is internal: the SDK fetches a JWT for each request and
+// never exposes it. The client defaults to the sandbox environment. Errors are a
 // typed hierarchy over [Error]; match a specific type with errors.As.
 package usesmileid

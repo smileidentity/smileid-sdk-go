@@ -3,6 +3,7 @@ package usesmileid
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -56,7 +57,7 @@ func TestVerifyEnhancedRequiresIDType(t *testing.T) {
 	assertValidationError(t, err)
 }
 
-func TestAuthenticationRequiresImagesUnlessEnrolled(t *testing.T) {
+func TestAuthenticationRequiresImages(t *testing.T) {
 	c := failingClient(t)
 	_, err := c.Biometric.Authenticate(context.Background(), AuthenticationParams{
 		UserID:      "user_1",
@@ -66,10 +67,34 @@ func TestAuthenticationRequiresImagesUnlessEnrolled(t *testing.T) {
 	assertValidationError(t, err)
 }
 
-func TestAuthenticationWithEnrolledImageSkipsImageCheck(t *testing.T) {
-	err := validateAuthentication(AuthenticationParams{
-		UserID:           "user_1",
-		UseEnrolledImage: Bool(true),
+func TestBiometricKYCRequiresImagesUnlessEnrolled(t *testing.T) {
+	c := failingClient(t)
+	_, err := c.BiometricKYC.Verify(context.Background(), BiometricKYCParams{
+		Country: "NG", IDType: "NIN", IDNumber: "1",
+		UserDetails: validUserDetails(),
+		Consent:     validConsent(),
+	})
+	assertValidationError(t, err)
+}
+
+func TestBiometricKYCEnrolledImageRequiresUserID(t *testing.T) {
+	c := failingClient(t)
+	_, err := c.BiometricKYC.Verify(context.Background(), BiometricKYCParams{
+		UseEnrolledImage: true,
+		Country:          "NG", IDType: "NIN", IDNumber: "1",
+		UserDetails: validUserDetails(),
+		Consent:     validConsent(),
+	})
+	assertValidationError(t, err)
+	if err == nil || !strings.Contains(err.Error(), "user_id") {
+		t.Errorf("error should mention user_id: %v", err)
+	}
+}
+
+func TestBiometricKYCEnrolledImageSkipsImageCheck(t *testing.T) {
+	err := validateBiometricKYC(BiometricKYCParams{
+		UseEnrolledImage: true,
+		UserID:           String("user_1"),
 		UserDetails:      validUserDetails(),
 		Consent:          validConsent(),
 	})

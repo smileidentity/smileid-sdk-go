@@ -22,7 +22,7 @@ The import path ends in `/v12` because the module is at major version 12. In cod
 
 ## Authentication
 
-Construct a client with your partner ID and API key. The SDK fetches, caches and refreshes the internal JWT for you; you never handle a token directly.
+Construct a client with your partner ID and API key. Before each request the SDK fetches a short-lived token from the Smile ID API, bound to that request's user and product; you never handle a token directly.
 
 ```go
 client, err := usesmileid.NewClient(usesmileid.Config{
@@ -182,6 +182,20 @@ accepted, err := client.BiometricKYC.Verify(ctx, usesmileid.BiometricKYCParams{
 })
 ```
 
+To verify against a user's enrolled selfie instead of a fresh capture, set `UseEnrolledImage` and pass the enrolled `UserID`; the selfie and liveness images may then be omitted.
+
+```go
+accepted, err := client.BiometricKYC.Verify(ctx, usesmileid.BiometricKYCParams{
+    UseEnrolledImage: true,
+    UserID:           usesmileid.String("user_123"),
+    Country:          "NG",
+    IDType:           "NIN",
+    IDNumber:         "12345678901",
+    UserDetails:      userDetails,
+    Consent:          consent,
+})
+```
+
 ### Biometric enrollment
 
 ```go
@@ -195,7 +209,7 @@ accepted, err := client.Biometric.Enroll(ctx, usesmileid.RegistrationParams{
 
 ### Biometric authentication
 
-`UserID` is required. Provide images unless `UseEnrolledImage` is true.
+`UserID`, `SelfieImage` and `LivenessImages` are required.
 
 ```go
 accepted, err := client.Biometric.Authenticate(ctx, usesmileid.AuthenticationParams{
