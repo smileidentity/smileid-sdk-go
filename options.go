@@ -10,8 +10,9 @@ import (
 type RequestOption func(*requestOptions)
 
 type requestOptions struct {
-	timeout     *time.Duration
-	callbackURL *string
+	timeout       *time.Duration
+	callbackURL   *string
+	enrolledImage bool
 }
 
 // WithTimeout overrides the client's per-request timeout for this call.
@@ -23,6 +24,14 @@ func WithTimeout(d time.Duration) RequestOption {
 // value in params and the client's default callback URL.
 func WithCallbackURL(u string) RequestOption {
 	return func(ro *requestOptions) { ro.callbackURL = &u }
+}
+
+// WithEnrolledImage verifies a biometric KYC job against the enrolled selfie
+// of its UserID, which is then required. The grant is bound into that job's
+// token and the selfie and liveness images may be omitted. Other methods
+// ignore it.
+func WithEnrolledImage() RequestOption {
+	return func(ro *requestOptions) { ro.enrolledImage = true }
 }
 
 func resolveOptions(opts []RequestOption) *requestOptions {
@@ -65,4 +74,15 @@ func (c *Client) resolveCallback(explicit *string, ro *requestOptions) (*string,
 		}
 	}
 	return cb, nil
+}
+
+type enrolledImageKey struct{}
+
+func withEnrolledImageGrant(ctx context.Context) context.Context {
+	return context.WithValue(ctx, enrolledImageKey{}, true)
+}
+
+func enrolledImageGranted(ctx context.Context) bool {
+	granted, _ := ctx.Value(enrolledImageKey{}).(bool)
+	return granted
 }
