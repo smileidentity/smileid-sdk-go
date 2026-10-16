@@ -12,10 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Each request mints its own token, bound to that request's `user_id` and product, instead of reusing one cached token. A 401 is no longer retried with a refreshed token.
+- A `UserID` that is empty or padded with whitespace returns a `*ValidationError` before any request is sent.
+- `Biometric.Authenticate` requires `SelfieImage` and `LivenessImages`.
 
 ### Added
 
-- `BiometricKYCParams.UseEnrolledImage` verifies against the user's enrolled selfie; the grant is bound into the job's token and the selfie and liveness images may be omitted. `UserID` is then required.
+- `usesmileid.WithEnrolledImage()` verifies a biometric KYC job against the user's enrolled selfie; the grant is bound into the job's token and the selfie and liveness images may be omitted. `UserID` is then required.
 
 ### Removed
 

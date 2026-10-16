@@ -43,11 +43,61 @@ func userAgent() string {
 	return fmt.Sprintf("smileid-sdk-%s/%s (go/%s)", sdkName, sdkVersion, strings.TrimPrefix(runtime.Version(), "go"))
 }
 
+// productByPath mirrors the API authorizer: a token bound to a product is
+// accepted only on that product's endpoint. Paths absent here mint a token
+// with no claims.
+var productByPath = map[string]string{
+	"/v3/enhanced_kyc":                    "enhanced_kyc",
+	"/v3/document_verification":           "document_verification",
+	"/v3/enhanced_document_verification":  "enhanced_document_verification",
+	"/v3/residency_document_verification": "residency_document_verification",
+	"/v3/biometric_kyc":                   "biometric_kyc",
+	"/v3/registration":                    "smart_selfie_registration",
+	"/v3/authentication":                  "smart_selfie_authentication",
+	"/v3/compare":                         "smart_selfie_compare",
+}
+
+// jobUserID returns the user a job names, from its User-ID header or its
+// user_id body part. The API trims the header but not the token's user_id
+// claim, so a padded id would mint a token for a different user than the job
+// names.
+func jobUserID(job *operations.Request) (*string, error) {
+	userID := job.UserIDHeader
+	if userID == nil {
+		for _, p := range job.Parts {
+			if p.Kind == operations.PartScalar && p.Name == "user_id" {
+				v := p.Scalar
+				userID = &v
+				break
+			}
+		}
+	}
+	if userID != nil && (*userID == "" || *userID != strings.TrimSpace(*userID)) {
+		return nil, validationErrorf("user_id must not be empty or padded with whitespace")
+	}
+	return userID, nil
+}
+
 // mintToken calls POST /v3/token with the documented lowercase headers and
 // the claims of the request it authorizes. Tokens are never shared between
 // requests: a grant authorizes a captureless job for one user and must not
-// reach any other call. The token request is idempotent and unauthenticated.
+// reach any other call. The token request is idempotent and unauthenticated,
+// and runs under the job's context so the caller's timeout and cancellation
+// apply to it.
 func (t *transport) mintToken(ctx context.Context, job *operations.Request) (string, error) {
+	product, mapped := productByPath[job.Path]
+	var userID *string
+	if mapped {
+		var err error
+		if userID, err = jobUserID(job); err != nil {
+			return "", err
+		}
+	}
+	grant := enrolledImageGranted(ctx)
+	if grant && userID == nil {
+		return "", validationErrorf("user_id is required when use_enrolled_image is true")
+	}
+
 	var resp struct {
 		Token string `json:"token"`
 	}
@@ -60,13 +110,13 @@ func (t *transport) mintToken(ctx context.Context, job *operations.Request) (str
 			"smileid-api-key":    t.cfg.apiKey,
 		},
 	}
-	if job.TokenUserID != "" {
-		req.Parts = append(req.Parts, scalarPart("user_id", job.TokenUserID))
+	if userID != nil {
+		req.Parts = append(req.Parts, scalarPart("user_id", *userID))
 	}
-	if job.Product != "" {
-		req.Parts = append(req.Parts, scalarPart("product", job.Product))
+	if mapped {
+		req.Parts = append(req.Parts, scalarPart("product", product))
 	}
-	if job.UseEnrolledImage {
+	if grant {
 		req.Parts = append(req.Parts, scalarPart("use_enrolled_image", "true"))
 	}
 	if len(req.Parts) > 0 {
@@ -76,7 +126,7 @@ func (t *transport) mintToken(ctx context.Context, job *operations.Request) (str
 		return "", err
 	}
 	if resp.Token == "" {
-		return "", &AuthenticationError{&smileIDError{Message: "token endpoint returned an empty token"}}
+		return "", &UnexpectedResponseError{&smileIDError{Message: "token endpoint returned no token"}}
 	}
 	return resp.Token, nil
 }
@@ -189,8 +239,8 @@ func (t *transport) newHTTPRequest(ctx context.Context, req *operations.Request,
 	if req.NeedsPartnerIDHeader {
 		hr.Header.Set("SmileID-Partner-ID", t.cfg.partnerID)
 	}
-	if req.UserIDHeader != "" {
-		hr.Header.Set("User-ID", req.UserIDHeader)
+	if req.UserIDHeader != nil {
+		hr.Header.Set("User-ID", *req.UserIDHeader)
 	}
 
 	return hr, nil

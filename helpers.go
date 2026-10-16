@@ -62,8 +62,8 @@ func validateAuthentication(p AuthenticationParams) error {
 	return validateUserDetails(p.UserDetails)
 }
 
-func validateBiometricKYC(p BiometricKYCParams) error {
-	if p.UseEnrolledImage {
+func validateBiometricKYC(p BiometricKYCParams, useEnrolledImage bool) error {
+	if useEnrolledImage {
 		if p.UserID == nil || strings.TrimSpace(*p.UserID) == "" {
 			return validationErrorf("user_id is required when use_enrolled_image is true")
 		}

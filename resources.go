@@ -122,7 +122,7 @@ type BiometricKYCResource struct{ c *Client }
 // Verify submits a biometric KYC verification (POST /v3/biometric_kyc).
 func (r *BiometricKYCResource) Verify(ctx context.Context, params BiometricKYCParams, opts ...RequestOption) (*AcceptedResponse, error) {
 	ro := resolveOptions(opts)
-	if err := validateBiometricKYC(params); err != nil {
+	if err := validateBiometricKYC(params, ro.enrolledImage); err != nil {
 		return nil, err
 	}
 	cb, err := r.c.resolveCallback(params.CallbackURL, ro)
@@ -133,6 +133,9 @@ func (r *BiometricKYCResource) Verify(ctx context.Context, params BiometricKYCPa
 
 	ctx, cancel := r.c.withTimeout(ctx, ro)
 	defer cancel()
+	if ro.enrolledImage {
+		ctx = withEnrolledImageGrant(ctx)
+	}
 
 	var out AcceptedResponse
 	if err := operations.BiometricKYC(ctx, r.c.transport, params, &out); err != nil {

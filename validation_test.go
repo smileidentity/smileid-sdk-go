@@ -80,11 +80,10 @@ func TestBiometricKYCRequiresImagesUnlessEnrolled(t *testing.T) {
 func TestBiometricKYCEnrolledImageRequiresUserID(t *testing.T) {
 	c := failingClient(t)
 	_, err := c.BiometricKYC.Verify(context.Background(), BiometricKYCParams{
-		UseEnrolledImage: true,
-		Country:          "NG", IDType: "NIN", IDNumber: "1",
+		Country: "NG", IDType: "NIN", IDNumber: "1",
 		UserDetails: validUserDetails(),
 		Consent:     validConsent(),
-	})
+	}, WithEnrolledImage())
 	assertValidationError(t, err)
 	if err == nil || !strings.Contains(err.Error(), "user_id") {
 		t.Errorf("error should mention user_id: %v", err)
@@ -93,11 +92,10 @@ func TestBiometricKYCEnrolledImageRequiresUserID(t *testing.T) {
 
 func TestBiometricKYCEnrolledImageSkipsImageCheck(t *testing.T) {
 	err := validateBiometricKYC(BiometricKYCParams{
-		UseEnrolledImage: true,
-		UserID:           String("user_1"),
-		UserDetails:      validUserDetails(),
-		Consent:          validConsent(),
-	})
+		UserID:      String("user_1"),
+		UserDetails: validUserDetails(),
+		Consent:     validConsent(),
+	}, true)
 	if err != nil {
 		t.Errorf("use_enrolled_image should skip the image requirement: %v", err)
 	}
