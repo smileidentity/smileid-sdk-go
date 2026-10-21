@@ -22,7 +22,7 @@ import (
 
 const (
 	sdkName    = "go"
-	sdkVersion = "12.1.0"
+	sdkVersion = "12.2.0"
 
 	timestampLayout = "2006-01-02T15:04:05.000Z"
 )
@@ -33,22 +33,71 @@ const (
 type transport struct {
 	cfg  config
 	http *http.Client
-	auth *tokenCache
 }
 
 func newTransport(cfg config, hc *http.Client) *transport {
-	t := &transport{cfg: cfg, http: hc}
-	t.auth = &tokenCache{fetch: t.fetchToken}
-	return t
+	return &transport{cfg: cfg, http: hc}
 }
 
 func userAgent() string {
 	return fmt.Sprintf("smileid-sdk-%s/%s (go/%s)", sdkName, sdkVersion, strings.TrimPrefix(runtime.Version(), "go"))
 }
 
-// fetchToken calls POST /v3/token with the documented lowercase headers and no
-// body. The token request is idempotent and unauthenticated.
-func (t *transport) fetchToken(ctx context.Context) (string, error) {
+// productByPath mirrors the API authorizer: a token bound to a product is
+// accepted only on that product's endpoint. Paths absent here mint a token
+// with no claims.
+var productByPath = map[string]string{
+	"/v3/enhanced_kyc":                    "enhanced_kyc",
+	"/v3/document_verification":           "document_verification",
+	"/v3/enhanced_document_verification":  "enhanced_document_verification",
+	"/v3/residency_document_verification": "residency_document_verification",
+	"/v3/biometric_kyc":                   "biometric_kyc",
+	"/v3/registration":                    "smart_selfie_registration",
+	"/v3/authentication":                  "smart_selfie_authentication",
+	"/v3/compare":                         "smart_selfie_compare",
+}
+
+// jobUserID returns the user a job names, from its User-ID header or its
+// user_id body part. The API trims the header but not the token's user_id
+// claim, so a padded id would mint a token for a different user than the job
+// names.
+func jobUserID(job *operations.Request) (*string, error) {
+	userID := job.UserIDHeader
+	if userID == nil {
+		for _, p := range job.Parts {
+			if p.Kind == operations.PartScalar && p.Name == "user_id" {
+				v := p.Scalar
+				userID = &v
+				break
+			}
+		}
+	}
+	if userID != nil && (*userID == "" || *userID != strings.TrimSpace(*userID)) {
+		return nil, validationErrorf("user_id must not be empty or padded with whitespace")
+	}
+	return userID, nil
+}
+
+// mintToken calls POST /v3/token with the documented lowercase headers and
+// the claims of the request it authorizes. Tokens are never shared between
+// requests: a grant authorizes a captureless job for one user and must not
+// reach any other call. The token request is idempotent and unauthenticated,
+// and runs under the job's context so the caller's timeout and cancellation
+// apply to it.
+func (t *transport) mintToken(ctx context.Context, job *operations.Request) (string, error) {
+	product, mapped := productByPath[job.Path]
+	var userID *string
+	if mapped {
+		var err error
+		if userID, err = jobUserID(job); err != nil {
+			return "", err
+		}
+	}
+	grant := enrolledImageGranted(ctx)
+	if grant && userID == nil {
+		return "", validationErrorf("user_id is required when use_enrolled_image is true")
+	}
+
 	var resp struct {
 		Token string `json:"token"`
 	}
@@ -61,27 +110,49 @@ func (t *transport) fetchToken(ctx context.Context) (string, error) {
 			"smileid-api-key":    t.cfg.apiKey,
 		},
 	}
+	if userID != nil {
+		req.Parts = append(req.Parts, scalarPart("user_id", *userID))
+	}
+	if mapped {
+		req.Parts = append(req.Parts, scalarPart("product", product))
+	}
+	if grant {
+		req.Parts = append(req.Parts, scalarPart("use_enrolled_image", "true"))
+	}
+	if len(req.Parts) > 0 {
+		req.BodyKind = operations.BodyMultipart
+	}
 	if err := t.Do(ctx, req, &resp); err != nil {
 		return "", err
 	}
 	if resp.Token == "" {
-		return "", &AuthenticationError{&smileIDError{Message: "token endpoint returned an empty token"}}
+		return "", &UnexpectedResponseError{&smileIDError{Message: "token endpoint returned no token"}}
 	}
 	return resp.Token, nil
 }
 
-// Do implements operations.Doer. It materializes the body once, then runs the
-// attempt loop: automatic retries for idempotent operations, plus a single
-// token refresh on a 401 for any authenticated operation.
+func scalarPart(name, value string) operations.Part {
+	return operations.Part{Name: name, Kind: operations.PartScalar, Scalar: value}
+}
+
+// Do implements operations.Doer. It materializes the body once, mints the
+// request's token if it is authenticated, then runs the attempt loop with
+// automatic retries for idempotent operations. Retries reuse the token.
 func (t *transport) Do(ctx context.Context, req *operations.Request, out interface{}) error {
 	body, contentType, err := t.buildBody(req)
 	if err != nil {
 		return err
 	}
 
-	authRefreshed := false
+	var token string
+	if req.Authenticated {
+		if token, err = t.mintToken(ctx, req); err != nil {
+			return err
+		}
+	}
+
 	for attempt := 0; ; attempt++ {
-		httpReq, err := t.newHTTPRequest(ctx, req, body, contentType)
+		httpReq, err := t.newHTTPRequest(ctx, req, body, contentType, token)
 		if err != nil {
 			return err
 		}
@@ -125,13 +196,6 @@ func (t *transport) Do(ctx context.Context, req *operations.Request, out interfa
 			return decodeJSONObject(resp.StatusCode, respBody, requestID(resp), out)
 		}
 
-		// Single token refresh on 401 for any authenticated call.
-		if resp.StatusCode == http.StatusUnauthorized && req.Authenticated && !authRefreshed {
-			authRefreshed = true
-			t.auth.invalidate()
-			continue
-		}
-
 		// Retry policy: idempotent operations only, on retryable statuses.
 		if req.Idempotent && attempt < t.cfg.maxRetries && isRetryableStatus(resp.StatusCode) {
 			wait := parseRetryAfter(resp.Header.Get("Retry-After"))
@@ -145,7 +209,7 @@ func (t *transport) Do(ctx context.Context, req *operations.Request, out interfa
 	}
 }
 
-func (t *transport) newHTTPRequest(ctx context.Context, req *operations.Request, body []byte, contentType string) (*http.Request, error) {
+func (t *transport) newHTTPRequest(ctx context.Context, req *operations.Request, body []byte, contentType string, token string) (*http.Request, error) {
 	var reader io.Reader
 	if body != nil {
 		reader = bytes.NewReader(body)
@@ -169,18 +233,14 @@ func (t *transport) newHTTPRequest(ctx context.Context, req *operations.Request,
 	if contentType != "" {
 		hr.Header.Set("Content-Type", contentType)
 	}
-	if req.Authenticated {
-		tok, err := t.auth.token(ctx)
-		if err != nil {
-			return nil, err
-		}
-		hr.Header.Set("SmileID-Token", tok)
+	if token != "" {
+		hr.Header.Set("SmileID-Token", token)
 	}
 	if req.NeedsPartnerIDHeader {
 		hr.Header.Set("SmileID-Partner-ID", t.cfg.partnerID)
 	}
-	if req.UserIDHeader != "" {
-		hr.Header.Set("User-ID", req.UserIDHeader)
+	if req.UserIDHeader != nil {
+		hr.Header.Set("User-ID", *req.UserIDHeader)
 	}
 
 	return hr, nil

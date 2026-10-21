@@ -56,7 +56,7 @@ type Request struct {
 	Path                 string
 	Query                url.Values
 	Headers              map[string]string // operation-specific header overrides
-	UserIDHeader         string            // sent as the User-ID header when non-empty
+	UserIDHeader         *string           // sent as the User-ID header when set
 	Authenticated        bool              // attach a bearer token
 	Idempotent           bool              // eligible for automatic retries
 	NeedsPartnerIDHeader bool              // send SmileID-Partner-ID
@@ -118,7 +118,7 @@ func EnhancedKYC(ctx context.Context, d Doer, p models.EnhancedKYCParams, out *m
 	}
 	addOptionalCommon(r, p.PartnerParams, p.Metadata)
 	if p.UserID != nil {
-		r.UserIDHeader = *p.UserID
+		r.UserIDHeader = p.UserID
 	}
 	return d.Do(ctx, r, out)
 }
@@ -168,7 +168,7 @@ func buildDocParts(r *Request, p models.DocumentVerificationParams) {
 	}
 	addOptionalCommon(r, p.PartnerParams, p.Metadata)
 	if p.UserID != nil {
-		r.UserIDHeader = *p.UserID
+		r.UserIDHeader = p.UserID
 	}
 }
 
@@ -178,8 +178,12 @@ func BiometricKYC(ctx context.Context, d Doer, p models.BiometricKYCParams, out 
 	r.scalar("country", p.Country)
 	r.scalar("id_type", p.IDType)
 	r.scalar("id_number", p.IDNumber)
-	r.binary("selfie_image", p.SelfieImage)
-	r.binaryArray("liveness_images", p.LivenessImages)
+	if p.SelfieImage != nil {
+		r.binary("selfie_image", p.SelfieImage)
+	}
+	if len(p.LivenessImages) > 0 {
+		r.binaryArray("liveness_images", p.LivenessImages)
+	}
 	r.jsonPart("user_details", p.UserDetails)
 	r.jsonPart("consent", p.Consent)
 	if p.CallbackURL != nil {
@@ -190,7 +194,7 @@ func BiometricKYC(ctx context.Context, d Doer, p models.BiometricKYCParams, out 
 	}
 	addOptionalCommon(r, p.PartnerParams, p.Metadata)
 	if p.UserID != nil {
-		r.UserIDHeader = *p.UserID
+		r.UserIDHeader = p.UserID
 	}
 	return d.Do(ctx, r, out)
 }
@@ -213,7 +217,7 @@ func Registration(ctx context.Context, d Doer, p models.RegistrationParams, out 
 	}
 	addOptionalCommon(r, p.PartnerParams, p.Metadata)
 	if p.UserID != nil {
-		r.UserIDHeader = *p.UserID
+		r.UserIDHeader = p.UserID
 	}
 	return d.Do(ctx, r, out)
 }
@@ -223,17 +227,10 @@ func Registration(ctx context.Context, d Doer, p models.RegistrationParams, out 
 func Authentication(ctx context.Context, d Doer, p models.AuthenticationParams, out *models.AcceptedResponse) error {
 	r := &Request{Method: "POST", Path: "/v3/authentication", Authenticated: true, BodyKind: BodyMultipart}
 	r.scalar("user_id", p.UserID)
-	if p.SelfieImage != nil {
-		r.binary("selfie_image", p.SelfieImage)
-	}
-	if len(p.LivenessImages) > 0 {
-		r.binaryArray("liveness_images", p.LivenessImages)
-	}
+	r.binary("selfie_image", p.SelfieImage)
+	r.binaryArray("liveness_images", p.LivenessImages)
 	r.jsonPart("user_details", p.UserDetails)
 	r.jsonPart("consent", p.Consent)
-	if p.UseEnrolledImage != nil {
-		r.scalar("use_enrolled_image", boolStr(*p.UseEnrolledImage))
-	}
 	if p.CallbackURL != nil {
 		r.scalar("callback_url", *p.CallbackURL)
 	}

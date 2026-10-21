@@ -53,8 +53,21 @@ func validateAuthentication(p AuthenticationParams) error {
 	if strings.TrimSpace(p.UserID) == "" {
 		return validationErrorf("user_id is required for authentication")
 	}
-	useEnrolled := p.UseEnrolledImage != nil && *p.UseEnrolledImage
-	if !useEnrolled {
+	if p.SelfieImage == nil {
+		return validationErrorf("selfie_image is required for authentication")
+	}
+	if len(p.LivenessImages) == 0 {
+		return validationErrorf("liveness_images are required for authentication")
+	}
+	return validateUserDetails(p.UserDetails)
+}
+
+func validateBiometricKYC(p BiometricKYCParams, useEnrolledImage bool) error {
+	if useEnrolledImage {
+		if p.UserID == nil || strings.TrimSpace(*p.UserID) == "" {
+			return validationErrorf("user_id is required when use_enrolled_image is true")
+		}
+	} else {
 		if p.SelfieImage == nil {
 			return validationErrorf("selfie_image is required unless use_enrolled_image is true")
 		}
