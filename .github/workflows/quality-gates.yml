@@ -1,0 +1,107 @@
+name: quality-gates
+on:
+  pull_request:
+    # labeled and unlabeled re-run the gates when the breaking, spec-sync,
+    # parity-port or release label changes.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+env:
+  # Tool versions, pinned so a release of a tool cannot change a gate.
+  GORELEASE_VERSION: v0.0.0-20261106192419-47ce03d25ef0
+  GOCOVER_COBERTURA_VERSION: v1.5.0
+  GOBCO_VERSION: v1.3.4
+  DIFF_COVER_VERSION: 11.0.1
+  # A bot PR carries the spec-sync, parity-port or release label, or was
+  # opened by a [bot] account. Its gates fail; on other PRs they only report.
+  BOT_PR: ${{ contains(github.event.pull_request.labels.*.name, 'spec-sync') || contains(github.event.pull_request.labels.*.name, 'parity-port') || contains(github.event.pull_request.labels.*.name, 'release') || endsWith(github.event.pull_request.user.login, '[bot]') }}
+  BASE_REF: ${{ github.base_ref }}
+
+jobs:
+  api-compat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          # Release tags and the base branch.
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+      - name: Install gorelease
+        run: go install "golang.org/x/exp/cmd/gorelease@${GORELEASE_VERSION}"
+      - name: Compare the public API with the latest release
+        env:
+          BREAKING_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'breaking') }}
+        run: |
+          status=0
+          scripts/check-api-compat.sh "origin/${BASE_REF}" || status=$?
+          if [ "$status" -eq 1 ] && [ "$BREAKING_LABEL" = true ]; then
+            echo "::notice::This PR breaks the public API and is labelled breaking. The next release must be a major version."
+            exit 0
+          fi
+          if [ "$status" -eq 1 ]; then
+            echo "::error::This PR breaks the public API. Keep the old API, or add the breaking label if the break is intended."
+          fi
+          exit "$status"
+
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          # diff-cover and the exclusion check diff against the base branch.
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+      - name: Install coverage tools
+        run: |
+          go install "github.com/boumenot/gocover-cobertura@${GOCOVER_COBERTURA_VERSION}"
+          go install "github.com/rillig/gobco@${GOBCO_VERSION}"
+          pipx install "diff-cover==${DIFF_COVER_VERSION}"
+      - name: Test with coverage
+        run: scripts/coverage.sh
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage
+          path: |
+            coverage.out
+            coverage.xml
+          if-no-files-found: error
+      - name: Require 100% statement, condition and branch coverage of generated/
+        run: scripts/check-generated-coverage.sh coverage.out
+      - name: Require 100% coverage of changed lines (bot PRs)
+        run: |
+          status=0
+          diff-cover coverage.xml --compare-branch="origin/${BASE_REF}" --fail-under=100 || status=$?
+          if [ "$status" -ne 0 ] && [ "$BOT_PR" != true ]; then
+            echo "::warning::Changed lines are not fully covered. This fails only on bot PRs."
+            exit 0
+          fi
+          exit "$status"
+      - name: Block coverage exclusions (bot PRs)
+        run: |
+          status=0
+          scripts/check-coverage-exclusions.sh "origin/${BASE_REF}" || status=$?
+          if [ "$status" -ne 0 ] && [ "$BOT_PR" != true ]; then
+            echo "::warning::This PR adds coverage exclusions. This fails only on bot PRs."
+            exit 0
+          fi
+          exit "$status"
+
+  scripts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - name: Lint shell scripts
+        run: shellcheck scripts/*.sh
+      - name: Test bump-version.sh
+        run: scripts/test-bump-version.sh
+      - name: Test check-coverage-exclusions.sh
+        run: scripts/test-check-coverage-exclusions.sh
