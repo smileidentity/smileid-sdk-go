@@ -105,3 +105,5 @@ jobs:
         run: scripts/test-bump-version.sh
       - name: Test check-coverage-exclusions.sh
         run: scripts/test-check-coverage-exclusions.sh
+      - name: Test release tag selection and the major-version rule
+        run: scripts/test-release-tags.sh

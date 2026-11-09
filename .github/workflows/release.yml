@@ -65,37 +65,10 @@ jobs:
             echo "::error::sdkVersion in transport.go is '$SDK_VERSION' but the tag is '$GITHUB_REF_NAME'. Run scripts/bump-version.sh before tagging."
             exit 1
           fi
-      - name: Verify the major version matches the breaking PRs since the last release
+      - name: Verify the major version matches the breaking PRs in this release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          TAG="${GITHUB_REF_NAME}"
-          # The highest v* tag below this one.
-          PREV=$(git tag --list 'v*' --sort=version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' |
-            awk -v tag="$TAG" '$0 == tag { exit } { prev = $0 } END { print prev }')
-          if [ -z "$PREV" ]; then
-            echo "::notice::No earlier release tag, so there are no breaking PRs to check."
-            exit 0
-          fi
-          SINCE=$(git for-each-ref --format='%(creatordate:iso-strict)' "refs/tags/$PREV")
-          BREAKING=$(gh pr list --repo "$GITHUB_REPOSITORY" --base main --state merged --label breaking \
-            --search "merged:>=$SINCE" --limit 100 --json number,title --jq '.[] | "#\(.number) \(.title)"')
-          PREV_MAJOR=$(echo "${PREV#v}" | cut -d. -f1)
-          TAG_MAJOR=$(echo "${TAG#v}" | cut -d. -f1)
-          echo "Previous release: $PREV ($SINCE)"
-          if [ -n "$BREAKING" ]; then
-            echo "PRs labelled breaking merged since $PREV:"
-            echo "$BREAKING"
-          fi
-          if [ -n "$BREAKING" ] && [ "$TAG_MAJOR" -le "$PREV_MAJOR" ]; then
-            echo "::error::PRs labelled breaking merged since $PREV, so $TAG must be a new major version."
-            exit 1
-          fi
-          if [ -z "$BREAKING" ] && [ "$TAG_MAJOR" -gt "$PREV_MAJOR" ]; then
-            echo "::error::$TAG is a major release, but no PR labelled breaking merged since $PREV. Label the PR that needs it, or release a minor or patch version."
-            exit 1
-          fi
+        run: scripts/check-release-major.sh "${GITHUB_REF_NAME}"
 
   # Reuse the same build/test/gofmt/vet/lint job the test workflow runs on
   # every push, so a release never ships code that hasn't passed CI.

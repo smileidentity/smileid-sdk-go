@@ -24,17 +24,26 @@ self_excludes=(
 )
 
 git diff --unified=0 --no-color --no-ext-diff "$base...HEAD" -- . "${self_excludes[@]}" | awk '
-  /^\+\+\+ / {
+  # File headers ("--- a/x" then "+++ b/x") only appear between "diff --git"
+  # and the first hunk. Inside a hunk, an added line whose text starts with
+  # "++ " also begins with "+++ ", so it must not switch the file.
+  /^diff --git / { in_hunk = 0; after_minus = 0; next }
+  !in_hunk && /^--- / { after_minus = 1; next }
+  !in_hunk && after_minus && /^\+\+\+ / {
     file = substr($0, 5)
     sub(/^b\//, "", file)
+    after_minus = 0
     next
   }
   /^@@ / {
     # @@ -a,b +c,d @@  ->  next added line is number c
+    in_hunk = 1
+    after_minus = 0
     split($3, parts, ",")
     line = substr(parts[1], 2) + 0
     next
   }
+  !in_hunk { next }
   /^\+/ {
     text = substr($0, 2)
     hit = 0

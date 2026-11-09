@@ -37,9 +37,9 @@ fi
 for pkg in $(go list ./generated/...); do
   dir=./$(go list -f '{{.Dir}}' "$pkg" | sed "s|^$PWD/||")
   for mode in condition branch; do
-    flag=
-    [ "$mode" = branch ] && flag=-branch
-    out=$(gobco $flag "$dir" 2>&1) || { echo "$out"; failed=1; continue; }
+    flags=()
+    if [ "$mode" = branch ]; then flags=(-branch); fi
+    out=$(gobco ${flags[@]+"${flags[@]}"} "$dir" 2>&1) || { echo "$out"; failed=1; continue; }
     summary=$(echo "$out" | grep -iE '^(condition|branch) coverage: [0-9]+/[0-9]+' || true)
     echo "$dir $summary"
     if [ -z "$summary" ]; then

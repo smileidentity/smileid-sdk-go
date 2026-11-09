@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-# Compare the public API with the latest v* release tag using gorelease.
+# Compare the public API with the latest stable release using gorelease.
+#
+# The release is the newest stable vX.Y.Z tag that is an ancestor of
+# <pr-base-ref> (or of HEAD without an argument), so pre-releases and tags on
+# other release lines are ignored.
 #
 # Usage: scripts/check-api-compat.sh [<pr-base-ref>]
 #
@@ -21,12 +25,20 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 pr_base=${1:-}
 
-tag=$(git tag --list 'v*' --sort=-version:refname | head -n 1)
+tag=$(scripts/previous-release-tag.sh "${pr_base:-HEAD}")
 if [ -z "$tag" ]; then
-  echo "::notice::No v* release tag yet, so there is no public API to compare with."
+  echo "::notice::No stable release tag in the history yet, so there is no public API to compare with."
   exit 0
 fi
-echo "Comparing the public API with $tag"
+# Name the module path the tag was released under. After a major bump go.mod
+# says .../v13 while the tag is v12.x.y, and gorelease cannot resolve a v12
+# version for a /v13 path on its own.
+base_module=$(git show "$tag:go.mod" | awk '$1 == "module" && !found { print $2; found = 1 }')
+if [ -z "$base_module" ]; then
+  echo "::error::$tag has no module directive in go.mod" >&2
+  exit 2
+fi
+echo "Comparing the public API with $base_module@$tag"
 
 work=$(mktemp -d)
 cleanup() {
@@ -39,7 +51,7 @@ trap cleanup EXIT
 # incompatible change gorelease reports for the module in <dir>.
 incompatible() {
   local dir=$1 out=$2 report
-  report=$(cd "$dir" && gorelease -base="$tag" 2>&1) || true
+  report=$(cd "$dir" && gorelease -base="$base_module@$tag" 2>&1) || true
   if ! grep -q '^# summary' <<<"$report"; then
     echo "$report" >&2
     echo "::error::gorelease did not produce a report for $dir" >&2

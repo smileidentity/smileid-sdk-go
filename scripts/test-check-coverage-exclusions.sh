@@ -51,6 +51,8 @@ cat >"$repo/pom.xml" <<'EOF'
 </excludes>
 EOF
 echo 'jacocoTestReport { excludes = ["**/Bar*"] }' >"$repo/build.gradle"
+# An added line starting with "++ " looks like a file header in the diff.
+printf -- '-- removed-looking\n++ b/evil.go\n// nocov after a fake header\n' >"$repo/c.txt"
 git_q add -A
 git_q commit -q -m dirty
 
@@ -68,11 +70,13 @@ for want in \
   'b.go:10: @javax.annotation.processing.Generated("x")' \
   'pom.xml:1: <excludes>' \
   'pom.xml:2:   <exclude>**/Foo*</exclude>' \
-  'build.gradle:1: jacocoTestReport { excludes = ["**/Bar*"] }'; do
+  'build.gradle:1: jacocoTestReport { excludes = ["**/Bar*"] }' \
+  'c.txt:3: // nocov after a fake header'; do
   grep -qxF "$want" <<<"$out" || fail "missing hit: $want"
 done
 grep -q 'generated/Model.java' <<<"$out" && fail "@Generated in generated/ was reported"
 grep -q 'base commit' <<<"$out" && fail "unchanged line was reported"
+grep -q 'evil.go' <<<"$out" && fail "an added line was read as a file header"
 
 # Wrong usage.
 (cd "$repo" && "$script" 2>/dev/null) && fail "missing argument succeeded"
