@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smileidentity/smileid-sdk-go/v12/generated/models"
+	"github.com/smileidentity/smileid-sdk-go/v13/generated/models"
 )
 
 // GrantConsent builds a granted Consent with the required fields set.

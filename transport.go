@@ -16,13 +16,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smileidentity/smileid-sdk-go/v12/generated/models"
-	"github.com/smileidentity/smileid-sdk-go/v12/generated/operations"
+	"github.com/smileidentity/smileid-sdk-go/v13/generated/models"
+	"github.com/smileidentity/smileid-sdk-go/v13/generated/operations"
 )
 
 const (
 	sdkName    = "go"
-	sdkVersion = "12.2.0"
+	sdkVersion = "13.0.0"
 
 	timestampLayout = "2006-01-02T15:04:05.000Z"
 )

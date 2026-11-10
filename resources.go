@@ -3,7 +3,7 @@ package usesmileid
 import (
 	"context"
 
-	"github.com/smileidentity/smileid-sdk-go/v12/generated/operations"
+	"github.com/smileidentity/smileid-sdk-go/v13/generated/operations"
 )
 
 // EnhancedKYCResource covers enhanced KYC verification.

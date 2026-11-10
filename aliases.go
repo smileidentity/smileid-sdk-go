@@ -1,6 +1,6 @@
 package usesmileid
 
-import "github.com/smileidentity/smileid-sdk-go/v12/generated/models"
+import "github.com/smileidentity/smileid-sdk-go/v13/generated/models"
 
 // Wire request and response models, re-exported from the generated package so
 // callers import only the root smileid package.

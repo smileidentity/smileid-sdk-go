@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/smileidentity/smileid-sdk-go/v12/generated/models"
+	"github.com/smileidentity/smileid-sdk-go/v13/generated/models"
 )
 
 // These tests pin the exact Request each operation builds: method, path,

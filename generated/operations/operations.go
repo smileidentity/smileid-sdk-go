@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/smileidentity/smileid-sdk-go/v12/generated/models"
+	"github.com/smileidentity/smileid-sdk-go/v13/generated/models"
 )
 
 // BodyKind describes how a request body is encoded.

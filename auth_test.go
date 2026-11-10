@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smileidentity/smileid-sdk-go/v12/generated/operations"
+	"github.com/smileidentity/smileid-sdk-go/v13/generated/operations"
 )
 
 const jobStatusBody = `{"status":"clear","job_id":"job_x","message":"Job completed"}`
