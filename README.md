@@ -9,16 +9,16 @@ The official Go server-side SDK for the [Smile ID](https://smileidentity.com) V3
 ## Installation
 
 ```bash
-go get github.com/smileidentity/smileid-sdk-go/v12
+go get github.com/smileidentity/smileid-sdk-go/v13
 ```
 
 Import the root package:
 
 ```go
-import "github.com/smileidentity/smileid-sdk-go/v12"
+import "github.com/smileidentity/smileid-sdk-go/v13"
 ```
 
-The import path ends in `/v12` because the module is at major version 12. In code you refer to the package as `usesmileid`.
+The import path ends in `/v13` because the module is at major version 13. In code you refer to the package as `usesmileid`.
 
 ## Authentication
 

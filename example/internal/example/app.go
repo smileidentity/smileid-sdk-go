@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	smileid "github.com/smileidentity/smileid-sdk-go/v12"
+	smileid "github.com/smileidentity/smileid-sdk-go/v13"
 )
 
 const defaultPrivacyURL = "https://example.com/privacy"

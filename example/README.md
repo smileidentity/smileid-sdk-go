@@ -24,13 +24,13 @@ It is also a testbench: the test suite runs the same application code against a 
 The module currently uses a local `replace` directive:
 
 ```go
-replace github.com/smileidentity/smileid-sdk-go/v12 => ..
+replace github.com/smileidentity/smileid-sdk-go/v13 => ..
 ```
 
 That keeps this example pinned to the parent SDK checkout during SDK development. If you copy this example elsewhere, remove the `replace` line and run:
 
 ```bash
-go get github.com/smileidentity/smileid-sdk-go/v12
+go get github.com/smileidentity/smileid-sdk-go/v13
 ```
 
 ## Configuration

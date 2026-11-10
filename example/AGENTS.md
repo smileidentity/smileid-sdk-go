@@ -4,7 +4,7 @@ This repository is a standalone example application for the Smile ID Go SDK.
 
 ## Development rules
 
-- Keep the application independent of Smile ID internals. Use only the public SDK API exposed by `github.com/smileidentity/smileid-sdk-go/v12`.
+- Keep the application independent of Smile ID internals. Use only the public SDK API exposed by `github.com/smileidentity/smileid-sdk-go/v13`.
 - Preserve the testbench behavior: commands should be testable against a local `httptest` server without real Smile ID credentials.
 - Prefer small, explicit examples over broad framework abstractions.
 - Keep credentials out of source control and documentation examples.
@@ -22,7 +22,7 @@ This repository is a standalone example application for the Smile ID Go SDK.
 `go.mod` intentionally uses:
 
 ```go
-replace github.com/smileidentity/smileid-sdk-go/v12 => ..
+replace github.com/smileidentity/smileid-sdk-go/v13 => ..
 ```
 
 Keep this while the example lives inside the SDK checkout. Remove it only when publishing the example independently from the SDK repository.
