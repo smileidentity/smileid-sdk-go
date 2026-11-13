@@ -14,8 +14,14 @@ jobs:
     if: github.repository == 'smileidentity/smileid-sdk-go'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          # Earlier release tags, for the breaking-change check.
+          fetch-depth: 0
       - name: Verify tag is a valid semver matching the module's major version
         run: |
           set -euo pipefail
@@ -50,6 +56,19 @@ jobs:
             echo "::error::CHANGELOG.md has no dated '## [$VERSION] - YYYY-MM-DD' heading for tag '$TAG'"
             exit 1
           fi
+      - name: Verify sdkVersion matches the tag
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          SDK_VERSION=$(sed -nE 's/^[[:space:]]*sdkVersion = "([^"]+)"$/\1/p' transport.go)
+          if [ "$SDK_VERSION" != "$VERSION" ]; then
+            echo "::error::sdkVersion in transport.go is '$SDK_VERSION' but the tag is '$GITHUB_REF_NAME'. Run scripts/bump-version.sh before tagging."
+            exit 1
+          fi
+      - name: Verify the major version matches the breaking PRs in this release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/check-release-major.sh "${GITHUB_REF_NAME}"
 
   # Reuse the same build/test/gofmt/vet/lint job the test workflow runs on
   # every push, so a release never ships code that hasn't passed CI.
