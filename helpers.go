@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -188,4 +190,70 @@ func timeoutError(jobID string, timeout time.Duration) error {
 	return &TimeoutError{&smileIDError{
 		Message: fmt.Sprintf("wait_until_complete timed out after %s waiting for job %s", timeout, jobID),
 	}}
+}
+
+var (
+	birthYearPattern      = regexp.MustCompile(`^\d{4}$`)
+	idempotencyKeyPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{16,128}$`)
+)
+
+func validateAMLScreening(countries []string, aliases []string, birthYear *string, searchExistingUser *bool, userID *string) error {
+	if len(countries) == 0 {
+		return validationErrorf("countries is required")
+	}
+	for _, c := range countries {
+		if len(c) != 2 {
+			return validationErrorf("countries must be two-letter ISO 3166-1 alpha-2 codes")
+		}
+	}
+	if len(aliases) > 20 {
+		return validationErrorf("aliases must contain at most 20 entries")
+	}
+	if birthYear != nil && !birthYearPattern.MatchString(*birthYear) {
+		return validationErrorf("birth_year must be a four digit year")
+	}
+	if searchExistingUser != nil && *searchExistingUser && (userID == nil || strings.TrimSpace(*userID) == "") {
+		return validationErrorf("user_id is required when search_existing_user is true")
+	}
+	return nil
+}
+
+func validateOneTimeAML(p OneTimeAMLParams) error {
+	if strings.TrimSpace(p.FullName) == "" {
+		return validationErrorf("full_name is required for AML screening")
+	}
+	if err := validateAMLScreening(p.Countries, p.Aliases, p.BirthYear, p.SearchExistingUser, p.UserID); err != nil {
+		return err
+	}
+	return validateUserDetails(p.UserDetails)
+}
+
+func validateAMLMonitoring(p AMLMonitoringParams) error {
+	searching := p.SearchExistingUser != nil && *p.SearchExistingUser
+	if !searching && (p.FullName == nil || strings.TrimSpace(*p.FullName) == "") {
+		return validationErrorf("full_name is required unless search_existing_user is true")
+	}
+	if err := validateAMLScreening(p.Countries, p.Aliases, p.BirthYear, p.SearchExistingUser, p.UserID); err != nil {
+		return err
+	}
+	return validateUserDetails(p.UserDetails)
+}
+
+func validateAMLMonitoringNews(jobID, reference string, p AMLMonitoringNewsParams) error {
+	if strings.TrimSpace(jobID) == "" {
+		return validationErrorf("job_id is required")
+	}
+	if strings.TrimSpace(reference) == "" {
+		return validationErrorf("reference is required")
+	}
+	if !slices.Contains(models.AMLNewsCategories, p.NewsCategory) {
+		return validationErrorf("news_category must be one of %s", strings.Join(models.AMLNewsCategories, ", "))
+	}
+	if p.Page != nil && (*p.Page < 1 || *p.Page > 100) {
+		return validationErrorf("page must be between 1 and 100")
+	}
+	if p.Limit != nil && (*p.Limit < 1 || *p.Limit > 100) {
+		return validationErrorf("limit must be between 1 and 100")
+	}
+	return nil
 }

@@ -23,6 +23,14 @@ type (
 	IDStatusResponse           = models.IDStatusResponse
 	ReplayCallbackResponse     = models.ReplayCallbackResponse
 	ReportUserFraudResponse    = models.ReportUserFraudResponse
+	OneTimeAMLResult           = models.OneTimeAMLResult
+	AMLPersonMatch             = models.AMLPersonMatch
+	AMLNewsSummary             = models.AMLNewsSummary
+	AMLPEP                     = models.AMLPEP
+	AMLUserProvidedInfo        = models.AMLUserProvidedInfo
+	AMLMonitoringNewsResponse  = models.AMLMonitoringNewsResponse
+	AMLMonitoringNewsMeta      = models.AMLMonitoringNewsMeta
+	AMLMonitoringNewsItem      = models.AMLMonitoringNewsItem
 
 	EnhancedKYCParams                   = models.EnhancedKYCParams
 	DocumentVerificationParams          = models.DocumentVerificationParams
@@ -39,6 +47,10 @@ type (
 	BankCodesParams                     = models.BankCodesParams
 	SupportedIDTypesParams              = models.SupportedIDTypesParams
 	SupportedDocumentsParams            = models.SupportedDocumentsParams
+	OneTimeAMLParams                    = models.OneTimeAMLParams
+	OneTimeAMLSyncParams                = models.OneTimeAMLSyncParams
+	AMLMonitoringParams                 = models.AMLMonitoringParams
+	AMLMonitoringNewsParams             = models.AMLMonitoringNewsParams
 )
 
 // Binary input constructors, re-exported from the generated package.
@@ -67,3 +79,6 @@ const (
 	ComparisonImageTypeIDPhoto  = models.ComparisonImageTypeIDPhoto
 	ComparisonImageTypePortrait = models.ComparisonImageTypePortrait
 )
+
+// AML Monitoring news categories.
+var AMLNewsCategories = models.AMLNewsCategories
