@@ -356,3 +356,98 @@ func IDStatus(ctx context.Context, d Doer, p models.IDStatusParams, out *models.
 	r.Query.Set("id_type", p.IDType)
 	return d.Do(ctx, r, out)
 }
+
+func buildAMLParts(r *Request, p models.OneTimeAMLParams) {
+	r.jsonPart("countries", p.Countries)
+	r.scalar("full_name", p.FullName)
+	r.jsonPart("user_details", p.UserDetails)
+	r.jsonPart("consent", p.Consent)
+	if p.BirthYear != nil {
+		r.scalar("birth_year", *p.BirthYear)
+	}
+	if p.StrictMatch != nil {
+		r.scalar("strict_match", boolStr(*p.StrictMatch))
+	}
+	if p.Aliases != nil {
+		r.jsonPart("aliases", p.Aliases)
+	}
+	if p.SearchExistingUser != nil {
+		r.scalar("search_existing_user", boolStr(*p.SearchExistingUser))
+	}
+	if p.UserID != nil {
+		r.scalar("user_id", *p.UserID)
+	}
+	if p.CallbackURL != nil {
+		r.scalar("callback_url", *p.CallbackURL)
+	}
+	addOptionalCommon(r, p.PartnerParams, p.Metadata)
+}
+
+// OneTimeAML builds and sends POST /v3/aml. The user_id is a body field.
+func OneTimeAML(ctx context.Context, d Doer, p models.OneTimeAMLParams, out *models.AcceptedResponse) error {
+	r := &Request{Method: "POST", Path: "/v3/aml", Authenticated: true, BodyKind: BodyMultipart}
+	buildAMLParts(r, p)
+	return d.Do(ctx, r, out)
+}
+
+// OneTimeAMLSync builds and sends POST /v3/aml/sync. The SmileID-Idempotency-Key
+// header is sent when set, and makes the call safe to retry.
+func OneTimeAMLSync(ctx context.Context, d Doer, p models.OneTimeAMLSyncParams, out *models.OneTimeAMLResult) error {
+	r := &Request{Method: "POST", Path: "/v3/aml/sync", Authenticated: true, BodyKind: BodyMultipart}
+	buildAMLParts(r, p.OneTimeAMLParams)
+	if p.IdempotencyKey != nil {
+		r.Headers = map[string]string{"SmileID-Idempotency-Key": *p.IdempotencyKey}
+		r.Idempotent = true
+	}
+	return d.Do(ctx, r, out)
+}
+
+// AMLMonitoring builds and sends POST /v3/aml/monitoring. The user_id is a body field.
+func AMLMonitoring(ctx context.Context, d Doer, p models.AMLMonitoringParams, out *models.AcceptedResponse) error {
+	r := &Request{Method: "POST", Path: "/v3/aml/monitoring", Authenticated: true, BodyKind: BodyMultipart}
+	r.jsonPart("countries", p.Countries)
+	if p.FullName != nil {
+		r.scalar("full_name", *p.FullName)
+	}
+	r.jsonPart("user_details", p.UserDetails)
+	r.jsonPart("consent", p.Consent)
+	if p.BirthYear != nil {
+		r.scalar("birth_year", *p.BirthYear)
+	}
+	if p.StrictMatch != nil {
+		r.scalar("strict_match", boolStr(*p.StrictMatch))
+	}
+	if p.Aliases != nil {
+		r.jsonPart("aliases", p.Aliases)
+	}
+	if p.SearchExistingUser != nil {
+		r.scalar("search_existing_user", boolStr(*p.SearchExistingUser))
+	}
+	if p.UserID != nil {
+		r.scalar("user_id", *p.UserID)
+	}
+	if p.CallbackURL != nil {
+		r.scalar("callback_url", *p.CallbackURL)
+	}
+	addOptionalCommon(r, p.PartnerParams, p.Metadata)
+	return d.Do(ctx, r, out)
+}
+
+// AMLMonitoringNews builds and sends GET /v3/aml/monitoring/{job_id}/news/{reference}.
+func AMLMonitoringNews(ctx context.Context, d Doer, jobID, reference string, p models.AMLMonitoringNewsParams, out *models.AMLMonitoringNewsResponse) error {
+	r := &Request{
+		Method:        "GET",
+		Path:          "/v3/aml/monitoring/" + url.PathEscape(jobID) + "/news/" + url.PathEscape(reference),
+		Authenticated: true,
+		Idempotent:    true,
+		Query:         url.Values{},
+	}
+	r.Query.Set("news_category", p.NewsCategory)
+	if p.Page != nil {
+		r.Query.Set("page", strconv.Itoa(*p.Page))
+	}
+	if p.Limit != nil {
+		r.Query.Set("limit", strconv.Itoa(*p.Limit))
+	}
+	return d.Do(ctx, r, out)
+}

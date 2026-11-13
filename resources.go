@@ -349,3 +349,98 @@ func (r *ServicesResource) IDStatus(ctx context.Context, params IDStatusParams, 
 	}
 	return &out, nil
 }
+
+// AMLResource covers One-Time AML screening and AML Monitoring.
+type AMLResource struct{ c *Client }
+
+// Screen submits a One-Time AML screening (POST /v3/aml). The result is
+// delivered to the callback URL.
+func (r *AMLResource) Screen(ctx context.Context, params OneTimeAMLParams, opts ...RequestOption) (*AcceptedResponse, error) {
+	ro := resolveOptions(opts)
+	if err := validateOneTimeAML(params); err != nil {
+		return nil, err
+	}
+	cb, err := r.c.resolveCallback(params.CallbackURL, ro)
+	if err != nil {
+		return nil, err
+	}
+	params.CallbackURL = cb
+
+	ctx, cancel := r.c.withTimeout(ctx, ro)
+	defer cancel()
+
+	var out AcceptedResponse
+	if err := operations.OneTimeAML(ctx, r.c.transport, params, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// ScreenSync submits a One-Time AML screening and returns the terminal result
+// inline (POST /v3/aml/sync). The callback URL is optional and never receives a
+// webhook. Set IdempotencyKey so a repeated submission returns the original
+// result instead of running a second, separately billed screening.
+func (r *AMLResource) ScreenSync(ctx context.Context, params OneTimeAMLSyncParams, opts ...RequestOption) (*OneTimeAMLResult, error) {
+	ro := resolveOptions(opts)
+	if err := validateOneTimeAML(params.OneTimeAMLParams); err != nil {
+		return nil, err
+	}
+	if params.IdempotencyKey != nil && !idempotencyKeyPattern.MatchString(*params.IdempotencyKey) {
+		return nil, validationErrorf("idempotency_key must be 16 to 128 characters of A-Z a-z 0-9 - _")
+	}
+	cb, err := r.c.resolveCallback(params.CallbackURL, ro)
+	if err != nil {
+		return nil, err
+	}
+	params.CallbackURL = cb
+
+	ctx, cancel := r.c.withTimeout(ctx, ro)
+	defer cancel()
+
+	var out OneTimeAMLResult
+	if err := operations.OneTimeAMLSync(ctx, r.c.transport, params, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// Monitor submits an AML Monitoring screening and enrols the entity for
+// ongoing monitoring (POST /v3/aml/monitoring).
+func (r *AMLResource) Monitor(ctx context.Context, params AMLMonitoringParams, opts ...RequestOption) (*AcceptedResponse, error) {
+	ro := resolveOptions(opts)
+	if err := validateAMLMonitoring(params); err != nil {
+		return nil, err
+	}
+	cb, err := r.c.resolveCallback(params.CallbackURL, ro)
+	if err != nil {
+		return nil, err
+	}
+	params.CallbackURL = cb
+
+	ctx, cancel := r.c.withTimeout(ctx, ro)
+	defer cancel()
+
+	var out AcceptedResponse
+	if err := operations.AMLMonitoring(ctx, r.c.transport, params, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// MonitoringNews fetches the adverse-media articles for a person reference in
+// an AML Monitoring result (GET /v3/aml/monitoring/{job_id}/news/{reference}).
+func (r *AMLResource) MonitoringNews(ctx context.Context, jobID, reference string, params AMLMonitoringNewsParams, opts ...RequestOption) (*AMLMonitoringNewsResponse, error) {
+	ro := resolveOptions(opts)
+	if err := validateAMLMonitoringNews(jobID, reference, params); err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := r.c.withTimeout(ctx, ro)
+	defer cancel()
+
+	var out AMLMonitoringNewsResponse
+	if err := operations.AMLMonitoringNews(ctx, r.c.transport, jobID, reference, params, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}

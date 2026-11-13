@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- AML operations, matching API spec v3.1165.0, on the new `client.AML` resource:
+  - `AML.Screen` submits a One-Time AML screening (`POST /v3/aml`).
+  - `AML.ScreenSync` submits one and returns the result inline (`POST /v3/aml/sync`). `IdempotencyKey` sets the `SmileID-Idempotency-Key` header.
+  - `AML.Monitor` submits an AML Monitoring screening (`POST /v3/aml/monitoring`).
+  - `AML.MonitoringNews` reads the adverse-media articles for a person reference (`GET /v3/aml/monitoring/{job_id}/news/{reference}`).
+
 ## [13.0.0] - 2026-11-09
 
 This release replaces the unpublished 12.2.0. It changes the public API, so it is a new major version.

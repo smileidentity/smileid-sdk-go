@@ -435,3 +435,120 @@ func TestFloatFormatting(t *testing.T) {
 		}
 	}
 }
+
+func TestOneTimeAML(t *testing.T) {
+	base := shape{Method: "POST", Path: "/v3/aml", Authenticated: true, BodyKind: BodyMultipart}
+
+	t.Run("all fields", func(t *testing.T) {
+		rec, out := &recorder{}, &models.AcceptedResponse{}
+		err := OneTimeAML(ctx, rec, models.OneTimeAMLParams{
+			Countries: []string{"NG", "KE"}, FullName: "John Doe", Consent: consent, UserDetails: userDetails,
+			BirthYear: str("1990"), StrictMatch: boolean(false), Aliases: []string{"Johnny Doe"},
+			SearchExistingUser: boolean(true), UserID: str("u1"), CallbackURL: str("https://cb"),
+			PartnerParams: partner, Metadata: metadata,
+		}, out)
+		want := base
+		want.Parts = []string{`countries json=["NG","KE"]`, "full_name=John Doe", userDetailsJSON, consentJSON,
+			"birth_year=1990", "strict_match=false", `aliases json=["Johnny Doe"]`, "search_existing_user=true",
+			"user_id=u1", "callback_url=https://cb", partnerJSON, metadataJSON}
+		check(t, rec, err, out, want)
+	})
+
+	t.Run("required fields only", func(t *testing.T) {
+		rec, out := &recorder{}, &models.AcceptedResponse{}
+		err := OneTimeAML(ctx, rec, models.OneTimeAMLParams{
+			Countries: []string{"NG"}, FullName: "John Doe", Consent: consent, UserDetails: userDetails,
+		}, out)
+		want := base
+		want.Parts = []string{`countries json=["NG"]`, "full_name=John Doe", userDetailsJSON, consentJSON}
+		check(t, rec, err, out, want)
+	})
+}
+
+func TestOneTimeAMLSync(t *testing.T) {
+	params := models.OneTimeAMLParams{
+		Countries: []string{"NG"}, FullName: "John Doe", Consent: consent, UserDetails: userDetails,
+	}
+	parts := []string{`countries json=["NG"]`, "full_name=John Doe", userDetailsJSON, consentJSON}
+
+	t.Run("with idempotency key", func(t *testing.T) {
+		rec, out := &recorder{}, &models.OneTimeAMLResult{}
+		err := OneTimeAMLSync(ctx, rec, models.OneTimeAMLSyncParams{
+			OneTimeAMLParams: params, IdempotencyKey: str("kuda-onboarding-8f14e45fceea167a"),
+		}, out)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := rec.req.Headers["SmileID-Idempotency-Key"]; got != "kuda-onboarding-8f14e45fceea167a" {
+			t.Errorf("idempotency header = %q", got)
+		}
+		if !rec.req.Idempotent {
+			t.Error("a keyed sync screening must be retryable")
+		}
+		if rec.req.Path != "/v3/aml/sync" || rec.req.Method != "POST" || !rec.req.Authenticated || rec.req.BodyKind != BodyMultipart {
+			t.Errorf("request = %+v", rec.req)
+		}
+		if rec.out != out {
+			t.Error("out not passed to Do")
+		}
+	})
+
+	t.Run("without idempotency key", func(t *testing.T) {
+		rec, out := &recorder{}, &models.OneTimeAMLResult{}
+		err := OneTimeAMLSync(ctx, rec, models.OneTimeAMLSyncParams{OneTimeAMLParams: params}, out)
+		want := shape{Method: "POST", Path: "/v3/aml/sync", Authenticated: true, BodyKind: BodyMultipart, Parts: parts}
+		check(t, rec, err, out, want)
+	})
+}
+
+func TestAMLMonitoring(t *testing.T) {
+	base := shape{Method: "POST", Path: "/v3/aml/monitoring", Authenticated: true, BodyKind: BodyMultipart}
+
+	t.Run("all fields", func(t *testing.T) {
+		rec, out := &recorder{}, &models.AcceptedResponse{}
+		err := AMLMonitoring(ctx, rec, models.AMLMonitoringParams{
+			Countries: []string{"NG", "GH"}, FullName: str("Jane Doe"), Consent: consent, UserDetails: userDetails,
+			BirthYear: str("1985"), StrictMatch: boolean(true), Aliases: []string{"J. Doe"},
+			SearchExistingUser: boolean(false), UserID: str("u1"), CallbackURL: str("https://cb"),
+			PartnerParams: partner, Metadata: metadata,
+		}, out)
+		want := base
+		want.Parts = []string{`countries json=["NG","GH"]`, "full_name=Jane Doe", userDetailsJSON, consentJSON,
+			"birth_year=1985", "strict_match=true", `aliases json=["J. Doe"]`, "search_existing_user=false",
+			"user_id=u1", "callback_url=https://cb", partnerJSON, metadataJSON}
+		check(t, rec, err, out, want)
+	})
+
+	t.Run("required fields only", func(t *testing.T) {
+		rec, out := &recorder{}, &models.AcceptedResponse{}
+		err := AMLMonitoring(ctx, rec, models.AMLMonitoringParams{
+			Countries: []string{"NG"}, Consent: consent, UserDetails: userDetails,
+		}, out)
+		want := base
+		want.Parts = []string{`countries json=["NG"]`, userDetailsJSON, consentJSON}
+		check(t, rec, err, out, want)
+	})
+}
+
+func TestAMLMonitoringNews(t *testing.T) {
+	t.Run("all fields", func(t *testing.T) {
+		rec, out := &recorder{}, &models.AMLMonitoringNewsResponse{}
+		page, limit := 2, 50
+		err := AMLMonitoringNews(ctx, rec, "job/1", "ref 001", models.AMLMonitoringNewsParams{
+			NewsCategory: "financial_crime", Page: &page, Limit: &limit,
+		}, out)
+		check(t, rec, err, out, shape{
+			Method: "GET", Path: "/v3/aml/monitoring/job%2F1/news/ref%20001",
+			Query: "limit=50&news_category=financial_crime&page=2", Authenticated: true, Idempotent: true,
+		})
+	})
+
+	t.Run("category only", func(t *testing.T) {
+		rec, out := &recorder{}, &models.AMLMonitoringNewsResponse{}
+		err := AMLMonitoringNews(ctx, rec, "j1", "r1", models.AMLMonitoringNewsParams{NewsCategory: "other"}, out)
+		check(t, rec, err, out, shape{
+			Method: "GET", Path: "/v3/aml/monitoring/j1/news/r1", Query: "news_category=other",
+			Authenticated: true, Idempotent: true,
+		})
+	})
+}
