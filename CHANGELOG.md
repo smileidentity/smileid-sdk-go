@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `AML.Monitor` submits an AML Monitoring screening (`POST /v3/aml/monitoring`).
   - `AML.MonitoringNews` reads the adverse-media articles for a person reference (`GET /v3/aml/monitoring/{job_id}/news/{reference}`).
 
+### Fixed
+
+- AML requests now mint their token with the `product` claim the spec requires: `one_time_aml` for `POST /v3/aml` and `POST /v3/aml/sync`, and `aml` for `POST /v3/aml/monitoring` and the news lookup, as set by `x-smile-token-product` in spec v3.1188.0.
+
 ## [13.0.0] - 2026-11-09
 
 This release replaces the unpublished 12.2.0. It changes the public API, so it is a new major version.

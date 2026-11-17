@@ -512,3 +512,48 @@ func assertValidationMessage(t *testing.T, err error, want string) {
 		t.Errorf("err = %q, want it to contain %q", err, want)
 	}
 }
+
+func TestAMLTokensCarryTheSpecProduct(t *testing.T) {
+	calls := []struct {
+		name    string
+		product string
+		claims  map[string]string
+		call    func(c *Client) error
+	}{
+		{"screen", "one_time_aml", map[string]string{"user_id": "user-1", "product": "one_time_aml"}, func(c *Client) error {
+			p := oneTimeAMLParams()
+			p.UserID = String("user-1")
+			_, err := c.AML.Screen(context.Background(), p)
+			return err
+		}},
+		{"screen_sync", "one_time_aml", map[string]string{"product": "one_time_aml"}, func(c *Client) error {
+			_, err := c.AML.ScreenSync(context.Background(), OneTimeAMLSyncParams{OneTimeAMLParams: oneTimeAMLParams()})
+			return err
+		}},
+		{"monitor", "aml", map[string]string{"user_id": "user-1", "product": "aml"}, func(c *Client) error {
+			_, err := c.AML.Monitor(context.Background(), AMLMonitoringParams{
+				Countries:   []string{"NG"},
+				FullName:    String("John Doe"),
+				UserDetails: validUserDetails(),
+				Consent:     validConsent(),
+				UserID:      String("user-1"),
+			})
+			return err
+		}},
+		{"monitoring_news", "aml", map[string]string{"product": "aml"}, func(c *Client) error {
+			_, err := c.AML.MonitoringNews(context.Background(), "a1b2c3d4e5", "ref_001", AMLMonitoringNewsParams{NewsCategory: "financial_crime"})
+			return err
+		}},
+	}
+	for _, tc := range calls {
+		t.Run(tc.name, func(t *testing.T) {
+			var tr tokenRecorder
+			c := testClient(t, tr.handler(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(amlNewsBody))
+			}))
+			_ = tc.call(c)
+			assertClaims(t, tr.lastClaims(t), tc.claims)
+		})
+	}
+}
