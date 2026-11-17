@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Each operation now carries its token `product` from the spec's `x-smile-token-product` extension (spec v3.1188.0) instead of a hand-kept path table. Token claims are unchanged.
+
 ## [13.0.0] - 2026-11-09
 
 This release replaces the unpublished 12.2.0. It changes the public API, so it is a new major version.

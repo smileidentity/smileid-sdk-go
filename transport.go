@@ -43,20 +43,6 @@ func userAgent() string {
 	return fmt.Sprintf("smileid-sdk-%s/%s (go/%s)", sdkName, sdkVersion, strings.TrimPrefix(runtime.Version(), "go"))
 }
 
-// productByPath mirrors the API authorizer: a token bound to a product is
-// accepted only on that product's endpoint. Paths absent here mint a token
-// with no claims.
-var productByPath = map[string]string{
-	"/v3/enhanced_kyc":                    "enhanced_kyc",
-	"/v3/document_verification":           "document_verification",
-	"/v3/enhanced_document_verification":  "enhanced_document_verification",
-	"/v3/residency_document_verification": "residency_document_verification",
-	"/v3/biometric_kyc":                   "biometric_kyc",
-	"/v3/registration":                    "smart_selfie_registration",
-	"/v3/authentication":                  "smart_selfie_authentication",
-	"/v3/compare":                         "smart_selfie_compare",
-}
-
 // jobUserID returns the user a job names, from its User-ID header or its
 // user_id body part. The API trims the header but not the token's user_id
 // claim, so a padded id would mint a token for a different user than the job
@@ -85,9 +71,8 @@ func jobUserID(job *operations.Request) (*string, error) {
 // and runs under the job's context so the caller's timeout and cancellation
 // apply to it.
 func (t *transport) mintToken(ctx context.Context, job *operations.Request) (string, error) {
-	product, mapped := productByPath[job.Path]
 	var userID *string
-	if mapped {
+	if job.Product != "" {
 		var err error
 		if userID, err = jobUserID(job); err != nil {
 			return "", err
@@ -113,8 +98,8 @@ func (t *transport) mintToken(ctx context.Context, job *operations.Request) (str
 	if userID != nil {
 		req.Parts = append(req.Parts, scalarPart("user_id", *userID))
 	}
-	if mapped {
-		req.Parts = append(req.Parts, scalarPart("product", product))
+	if job.Product != "" {
+		req.Parts = append(req.Parts, scalarPart("product", job.Product))
 	}
 	if grant {
 		req.Parts = append(req.Parts, scalarPart("use_enrolled_image", "true"))

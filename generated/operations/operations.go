@@ -58,6 +58,7 @@ type Request struct {
 	Headers              map[string]string // operation-specific header overrides
 	UserIDHeader         *string           // sent as the User-ID header when set
 	Authenticated        bool              // attach a bearer token
+	Product              string            // x-smile-token-product: the product claim the token must carry
 	Idempotent           bool              // eligible for automatic retries
 	NeedsPartnerIDHeader bool              // send SmileID-Partner-ID
 	NotFoundReturnsBody  bool              // decode a 404 body instead of raising
@@ -101,7 +102,7 @@ func addOptionalCommon(r *Request, partnerParams map[string]string, metadata []m
 
 // EnhancedKYC builds and sends POST /v3/enhanced_kyc.
 func EnhancedKYC(ctx context.Context, d Doer, p models.EnhancedKYCParams, out *models.AcceptedResponse) error {
-	r := &Request{Method: "POST", Path: "/v3/enhanced_kyc", Authenticated: true, BodyKind: BodyMultipart}
+	r := &Request{Method: "POST", Path: "/v3/enhanced_kyc", Authenticated: true, Product: "enhanced_kyc", BodyKind: BodyMultipart}
 	r.scalar("country", p.Country)
 	r.scalar("id_type", p.IDType)
 	r.scalar("id_number", p.IDNumber)
@@ -125,21 +126,21 @@ func EnhancedKYC(ctx context.Context, d Doer, p models.EnhancedKYCParams, out *m
 
 // DocumentVerification builds and sends POST /v3/document_verification.
 func DocumentVerification(ctx context.Context, d Doer, p models.DocumentVerificationParams, out *models.AcceptedResponse) error {
-	r := &Request{Method: "POST", Path: "/v3/document_verification", Authenticated: true, NeedsPartnerIDHeader: true, BodyKind: BodyMultipart}
+	r := &Request{Method: "POST", Path: "/v3/document_verification", Authenticated: true, Product: "document_verification", NeedsPartnerIDHeader: true, BodyKind: BodyMultipart}
 	buildDocParts(r, p)
 	return d.Do(ctx, r, out)
 }
 
 // EnhancedDocumentVerification builds and sends POST /v3/enhanced_document_verification.
 func EnhancedDocumentVerification(ctx context.Context, d Doer, p models.DocumentVerificationParams, out *models.AcceptedResponse) error {
-	r := &Request{Method: "POST", Path: "/v3/enhanced_document_verification", Authenticated: true, NeedsPartnerIDHeader: true, BodyKind: BodyMultipart}
+	r := &Request{Method: "POST", Path: "/v3/enhanced_document_verification", Authenticated: true, Product: "enhanced_document_verification", NeedsPartnerIDHeader: true, BodyKind: BodyMultipart}
 	buildDocParts(r, p)
 	return d.Do(ctx, r, out)
 }
 
 // ResidencyDocumentVerification builds and sends POST /v3/residency_document_verification.
 func ResidencyDocumentVerification(ctx context.Context, d Doer, p models.ResidencyDocumentVerificationParams, out *models.AcceptedResponse) error {
-	r := &Request{Method: "POST", Path: "/v3/residency_document_verification", Authenticated: true, NeedsPartnerIDHeader: true, BodyKind: BodyMultipart}
+	r := &Request{Method: "POST", Path: "/v3/residency_document_verification", Authenticated: true, Product: "residency_document_verification", NeedsPartnerIDHeader: true, BodyKind: BodyMultipart}
 	buildDocParts(r, models.DocumentVerificationParams{
 		SelfieImage: p.SelfieImage, LivenessImages: p.LivenessImages, Document: p.Document,
 		DocumentBack: p.DocumentBack, Consent: p.Consent, Country: p.Country, IDType: &p.IDType,
@@ -174,7 +175,7 @@ func buildDocParts(r *Request, p models.DocumentVerificationParams) {
 
 // BiometricKYC builds and sends POST /v3/biometric_kyc.
 func BiometricKYC(ctx context.Context, d Doer, p models.BiometricKYCParams, out *models.AcceptedResponse) error {
-	r := &Request{Method: "POST", Path: "/v3/biometric_kyc", Authenticated: true, NeedsPartnerIDHeader: true, BodyKind: BodyMultipart}
+	r := &Request{Method: "POST", Path: "/v3/biometric_kyc", Authenticated: true, Product: "biometric_kyc", NeedsPartnerIDHeader: true, BodyKind: BodyMultipart}
 	r.scalar("country", p.Country)
 	r.scalar("id_type", p.IDType)
 	r.scalar("id_number", p.IDNumber)
@@ -201,7 +202,7 @@ func BiometricKYC(ctx context.Context, d Doer, p models.BiometricKYCParams, out 
 
 // Registration builds and sends POST /v3/registration.
 func Registration(ctx context.Context, d Doer, p models.RegistrationParams, out *models.AcceptedResponse) error {
-	r := &Request{Method: "POST", Path: "/v3/registration", Authenticated: true, BodyKind: BodyMultipart}
+	r := &Request{Method: "POST", Path: "/v3/registration", Authenticated: true, Product: "smart_selfie_registration", BodyKind: BodyMultipart}
 	r.binary("selfie_image", p.SelfieImage)
 	r.binaryArray("liveness_images", p.LivenessImages)
 	r.jsonPart("user_details", p.UserDetails)
@@ -225,7 +226,7 @@ func Registration(ctx context.Context, d Doer, p models.RegistrationParams, out 
 // Authentication builds and sends POST /v3/authentication. The user_id is a
 // body field for this operation, not the User-ID header.
 func Authentication(ctx context.Context, d Doer, p models.AuthenticationParams, out *models.AcceptedResponse) error {
-	r := &Request{Method: "POST", Path: "/v3/authentication", Authenticated: true, BodyKind: BodyMultipart}
+	r := &Request{Method: "POST", Path: "/v3/authentication", Authenticated: true, Product: "smart_selfie_authentication", BodyKind: BodyMultipart}
 	r.scalar("user_id", p.UserID)
 	r.binary("selfie_image", p.SelfieImage)
 	r.binaryArray("liveness_images", p.LivenessImages)
@@ -243,7 +244,7 @@ func Authentication(ctx context.Context, d Doer, p models.AuthenticationParams, 
 
 // Compare builds and sends POST /v3/compare. The optional user_id is a body field.
 func Compare(ctx context.Context, d Doer, p models.CompareParams, out *models.AcceptedResponse) error {
-	r := &Request{Method: "POST", Path: "/v3/compare", Authenticated: true, BodyKind: BodyMultipart}
+	r := &Request{Method: "POST", Path: "/v3/compare", Authenticated: true, Product: "smart_selfie_compare", BodyKind: BodyMultipart}
 	r.binary("selfie_image", p.SelfieImage)
 	r.binary("comparison_image", p.ComparisonImage)
 	r.scalar("comparison_image_type", p.ComparisonImageType)
