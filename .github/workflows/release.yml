@@ -22,53 +22,12 @@ jobs:
         with:
           # Earlier release tags, for the breaking-change check.
           fetch-depth: 0
-      - name: Verify tag is a valid semver matching the module's major version
-        run: |
-          set -euo pipefail
-          TAG="${GITHUB_REF_NAME}"
-          if [[ ! "$TAG" =~ ^v([0-9]+)\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::Tag '$TAG' is not a valid semver tag (expected vX.Y.Z)"
-            exit 1
-          fi
-          TAG_MAJOR="${BASH_REMATCH[1]}"
-          MODULE=$(awk '$1=="module"{print $2; exit}' go.mod)
-          if [ -z "$MODULE" ]; then
-            echo "::error::Could not find a 'module' directive in go.mod"
-            exit 1
-          fi
-          # A module path only carries a /vN suffix for major version 2+; v0 and v1 have none.
-          MODULE_SUFFIX=$(echo "$MODULE" | grep -oE '/v[0-9]+$' | grep -oE '[0-9]+' || true)
-          if [ -n "$MODULE_SUFFIX" ]; then
-            if [ "$TAG_MAJOR" != "$MODULE_SUFFIX" ]; then
-              echo "::error::Tag major version v$TAG_MAJOR does not match module path '$MODULE' (expected v$MODULE_SUFFIX.x.y). A mismatched tag would break consumers importing that major version."
-              exit 1
-            fi
-          elif [ "$TAG_MAJOR" != "0" ] && [ "$TAG_MAJOR" != "1" ]; then
-            echo "::error::Tag major version v$TAG_MAJOR requires module path '$MODULE' to end with /v$TAG_MAJOR. A mismatched tag would break consumers importing that major version."
-            exit 1
-          fi
-      - name: Verify CHANGELOG.md has an entry for this version
-        run: |
-          set -euo pipefail
-          TAG="${GITHUB_REF_NAME}"
-          VERSION="${TAG#v}"
-          if ! grep -qE "^## \[${VERSION//./\\.}\] - [0-9]{4}-[0-9]{2}-[0-9]{2}" CHANGELOG.md; then
-            echo "::error::CHANGELOG.md has no dated '## [$VERSION] - YYYY-MM-DD' heading for tag '$TAG'"
-            exit 1
-          fi
-      - name: Verify sdkVersion matches the tag
-        run: |
-          set -euo pipefail
-          VERSION="${GITHUB_REF_NAME#v}"
-          SDK_VERSION=$(sed -nE 's/^[[:space:]]*sdkVersion = "([^"]+)"$/\1/p' transport.go)
-          if [ "$SDK_VERSION" != "$VERSION" ]; then
-            echo "::error::sdkVersion in transport.go is '$SDK_VERSION' but the tag is '$GITHUB_REF_NAME'. Run scripts/bump-version.sh before tagging."
-            exit 1
-          fi
-      - name: Verify the major version matches the breaking PRs in this release
+      # The same guards run on release PRs in quality-gates.yml, so a bad
+      # release fails there before the tag is pushed and the version is burnt.
+      - name: Verify the tag, CHANGELOG, sdkVersion and breaking PRs
         env:
           GH_TOKEN: ${{ github.token }}
-        run: scripts/check-release-major.sh "${GITHUB_REF_NAME}"
+        run: scripts/check-release.sh "${GITHUB_REF_NAME}"
 
   # Reuse the same build/test/gofmt/vet/lint job the test workflow runs on
   # every push, so a release never ships code that hasn't passed CI.

@@ -14,6 +14,8 @@ env:
   GOCOVER_COBERTURA_VERSION: v1.5.0
   GOBCO_VERSION: v1.3.4
   DIFF_COVER_VERSION: 11.0.1
+  SHELLCHECK_VERSION: v0.11.0
+  SHELLCHECK_SHA256: 8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198
   # A bot PR carries the spec-sync, parity-port or release label, or was
   # opened by a [bot] account. Its gates fail; on other PRs they only report.
   BOT_PR: ${{ contains(github.event.pull_request.labels.*.name, 'spec-sync') || contains(github.event.pull_request.labels.*.name, 'parity-port') || contains(github.event.pull_request.labels.*.name, 'release') || endsWith(github.event.pull_request.user.login, '[bot]') }}
@@ -99,11 +101,58 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - name: Install shellcheck
+        # The runner image's shellcheck changes without notice, which could
+        # add new warnings to unchanged scripts.
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/shellcheck.tar.xz"
+          curl -fsSL -o "$archive" "https://github.com/koalaman/shellcheck/releases/download/${SHELLCHECK_VERSION}/shellcheck-${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
+          echo "${SHELLCHECK_SHA256}  $archive" | sha256sum -c -
+          tar -xJf "$archive" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/shellcheck-${SHELLCHECK_VERSION}" >>"$GITHUB_PATH"
       - name: Lint shell scripts
-        run: shellcheck scripts/*.sh
+        run: |
+          shellcheck --version
+          shellcheck scripts/*.sh
       - name: Test bump-version.sh
         run: scripts/test-bump-version.sh
       - name: Test check-coverage-exclusions.sh
         run: scripts/test-check-coverage-exclusions.sh
       - name: Test release tag selection and the major-version rule
         run: scripts/test-release-tags.sh
+
+  release-guards:
+    # Release PRs only. These are the guards release.yml runs on the tag, run
+    # here first: a tag ruleset stops a tag being moved, so a guard that fails
+    # after the tag is pushed burns the version.
+    if: contains(github.event.pull_request.labels.*.name, 'release') || startsWith(github.head_ref, 'release/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          # Earlier release tags, for the breaking-change check.
+          fetch-depth: 0
+      - name: Run the release guards against this PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          # The version comes from the release/vX.Y.Z branch name, or from
+          # sdkVersion when the branch has another name.
+          if [[ "$HEAD_REF" == release/* ]]; then
+            tag=${HEAD_REF#release/}
+          else
+            tag="v$(sed -nE 's/^[[:space:]]*sdkVersion = "([^"]+)"$/\1/p' transport.go)"
+          fi
+          echo "Checking release $tag"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "::error::Tag $tag already exists. Release a new version with scripts/bump-version.sh."
+            exit 1
+          fi
+          scripts/check-release.sh "$tag" HEAD

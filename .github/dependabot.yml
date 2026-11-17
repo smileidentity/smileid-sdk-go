@@ -9,6 +9,8 @@ updates:
       go-modules:
         patterns:
           - '*'
+  # Dependabot bumps action SHAs, not their inputs. Bump the lint job's Go
+  # version and golangci-lint version in test.yml together, by hand.
   - package-ecosystem: github-actions
     open-pull-requests-limit: 5
     directory: /
