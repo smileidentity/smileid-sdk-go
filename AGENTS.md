@@ -29,6 +29,8 @@ Automated pull requests use these labels and branches:
 
 Porting changes between SDKs automatically, with the `parity-port` label, is planned but not built yet.
 
+A release pull request (labelled `release` or on a `release/vX.Y.Z` branch) runs the release guards before the tag exists: the version, the dated CHANGELOG heading, `sdkVersion` and the breaking-PR major-version rule. Run them locally with `scripts/check-release.sh vX.Y.Z HEAD`. Fix any failure before you push the tag, because a pushed tag cannot be moved.
+
 The `breaking` label is not only for automation. CI fails any pull request that breaks the public API unless it has the `breaking` label, including pull requests made by hand.
 
 Add `parity:skip` to a pull request that should not be ported to the other SDKs.

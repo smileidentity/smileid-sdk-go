@@ -2,24 +2,28 @@
 # Check that a release tag's major version matches the PRs labelled breaking
 # that it contains.
 #
-# Usage: scripts/check-release-major.sh <tag>
+# Usage: scripts/check-release-major.sh <tag> [<rev>]
 #
-# The release contains the commits in <previous stable tag>..<tag>, where the
-# previous tag is the newest stable tag that is an ancestor of <tag>. A PR
-# labelled breaking counts if its merge commit is in that range.
+# The release contains the commits in <previous stable tag>..<rev>, where
+# <rev> defaults to <tag> and the previous tag is the newest stable tag that
+# is an ancestor of <rev>. Pass <rev> to check a release before its tag
+# exists, for example HEAD on a release PR. A PR labelled breaking counts if
+# its merge commit is in that range.
 #   - Breaking PRs and no major bump: fail.
 #   - A major bump and no breaking PRs: fail, except 0.x to 1.0.0, which
 #     stabilises the API rather than breaking it.
 #
-# PRs come from `gh pr list` (needs GH_TOKEN and GITHUB_REPOSITORY). Tests set
+# PRs come from `gh pr list` (needs gh auth or GH_TOKEN; GITHUB_REPOSITORY
+# defaults to smileidentity/smileid-sdk-go). Tests set
 # BREAKING_PRS_FILE to a file of "<merge commit sha> #<number> <title>" lines.
 set -euo pipefail
 
-if [ $# -ne 1 ]; then
-  echo "usage: $0 <tag>" >&2
+if [ $# -lt 1 ] || [ $# -gt 2 ]; then
+  echo "usage: $0 <tag> [<rev>]" >&2
   exit 2
 fi
 tag=$1
+rev=${2:-$tag}
 scripts_dir=$(cd "$(dirname "$0")" && pwd)
 
 if [[ ! "$tag" =~ ^v([0-9]+)\.[0-9]+\.[0-9]+$ ]]; then
@@ -28,9 +32,9 @@ if [[ ! "$tag" =~ ^v([0-9]+)\.[0-9]+\.[0-9]+$ ]]; then
 fi
 tag_major=${BASH_REMATCH[1]}
 
-prev=$("$scripts_dir/previous-release-tag.sh" "$tag^")
+prev=$("$scripts_dir/previous-release-tag.sh" "$rev^")
 if [ -z "$prev" ]; then
-  echo "::notice::$tag has no earlier release tag in its history, so there are no breaking PRs to check."
+  echo "::notice::$rev has no earlier release tag in its history, so there are no breaking PRs to check."
   exit 0
 fi
 prev_major=$(echo "${prev#v}" | cut -d. -f1)
@@ -39,14 +43,14 @@ echo "Previous release: $prev"
 if [ -n "${BREAKING_PRS_FILE:-}" ]; then
   candidates=$(cat "$BREAKING_PRS_FILE")
 else
-  candidates=$(gh pr list --repo "$GITHUB_REPOSITORY" --state merged --label breaking --limit 1000 \
+  candidates=$(gh pr list --repo "${GITHUB_REPOSITORY:-smileidentity/smileid-sdk-go}" --state merged --label breaking --limit 1000 \
     --json number,title,mergeCommit --jq '.[] | "\(.mergeCommit.oid) #\(.number) \(.title)"')
 fi
 
 breaking=""
 while read -r oid rest; do
   [ -n "$oid" ] || continue
-  if git merge-base --is-ancestor "$oid" "$tag" 2>/dev/null &&
+  if git merge-base --is-ancestor "$oid" "$rev" 2>/dev/null &&
     ! git merge-base --is-ancestor "$oid" "$prev" 2>/dev/null; then
     breaking+="$rest"$'\n'
   fi
