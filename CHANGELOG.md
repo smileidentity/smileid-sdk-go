@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `AMLPersonMatch` now parses `addresses`, `aliases`, `dates_of_birth` and `nationalities` as lists of strings, as spec v3.1192.0 defines them. They were typed as lists of objects, so a real response failed to parse. The type has not been released.
 - AML requests now mint their token with the `product` claim the spec requires: `one_time_aml` for `POST /v3/aml` and `POST /v3/aml/sync`, and `aml` for `POST /v3/aml/monitoring` and the news lookup, as set by `x-smile-token-product` in spec v3.1188.0.
 
 ## [13.0.0] - 2026-11-09

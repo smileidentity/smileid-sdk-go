@@ -92,6 +92,17 @@ expect_pass v13.0.0
 
 expect_fail v12.1.0-rc.1 # not a stable tag
 
+# Before the tag exists, as on a release PR: check <tag> against a revision.
+check_rev() {
+  (cd "$repo" && BREAKING_PRS_FILE="$prs" "$scripts_dir/check-release-major.sh" "$1" "$2" >/dev/null 2>&1)
+}
+check_rev v13.1.0 main || fail "check-release-major v13.1.0 main failed, want pass"
+check_rev v14.0.0 main && fail "check-release-major v14.0.0 main passed, want fail (no breaking PR since v13.0.0)"
+c8=$(commit "breaking 8")
+echo "$c8 #8 Breaking change eight" >>"$prs"
+check_rev v13.1.0 main && fail "check-release-major v13.1.0 main passed, want fail (breaking #8)"
+check_rev v14.0.0 main || fail "check-release-major v14.0.0 main failed, want pass (breaking #8)"
+
 if [ "$failures" -ne 0 ]; then
   echo "$failures release-tag test(s) failed" >&2
   exit 1

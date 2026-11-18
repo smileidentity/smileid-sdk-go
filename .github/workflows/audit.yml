@@ -13,6 +13,11 @@ permissions:
   contents: read
   issues: write
 
+env:
+  # Pinned so a govulncheck release cannot change the result. Dependabot
+  # does not bump it, so update it by hand.
+  GOVULNCHECK_VERSION: v1.10.0
+
 jobs:
   security-audit:
     name: Security Audit
@@ -23,7 +28,7 @@ jobs:
         with:
           go-version: stable
       - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+        run: go install "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}"
       - name: Run govulncheck
         run: govulncheck ./...
       - name: Create issue on failure

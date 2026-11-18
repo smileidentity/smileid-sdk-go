@@ -26,12 +26,12 @@ const amlSyncBody = `{
   "no_of_persons_found": 1,
   "people": [{
     "name": "Gbenga Afolabi",
-    "addresses": [],
-    "aliases": [{"name": "G. Afolabi"}],
+    "addresses": ["1 Marina, Lagos"],
+    "aliases": ["G. Afolabi"],
     "associations": [],
-    "dates_of_birth": [],
+    "dates_of_birth": ["1980-01-01"],
     "enforcement_actions": [],
-    "nationalities": [],
+    "nationalities": ["NG"],
     "news_summary": [{"news_category": "financial_crime", "news_category_label": "Financial crime", "number_of_articles": 3}],
     "sanctions": [{"list": "OFAC SDN"}],
     "pep": {"pep_level": 2, "political_positions": ["Minister"], "sources": [{"name": "src"}]}
@@ -183,7 +183,7 @@ func TestAMLScreenSyncGoldenRequestAndResult(t *testing.T) {
 		t.Fatalf("people = %+v", res.People)
 	}
 	person := res.People[0]
-	if person.Name != "Gbenga Afolabi" || person.Sanctions[0]["list"] != "OFAC SDN" || person.Aliases[0]["name"] != "G. Afolabi" {
+	if person.Name != "Gbenga Afolabi" || person.Sanctions[0]["list"] != "OFAC SDN" || person.Aliases[0] != "G. Afolabi" || person.Addresses[0] != "1 Marina, Lagos" || person.DatesOfBirth[0] != "1980-01-01" || person.Nationalities[0] != "NG" {
 		t.Errorf("person = %+v", person)
 	}
 	if len(person.NewsSummary) != 1 || person.NewsSummary[0].NewsCategory != "financial_crime" || person.NewsSummary[0].NumberOfArticles != 3 {

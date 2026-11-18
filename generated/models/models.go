@@ -163,13 +163,13 @@ type AMLPEP struct {
 // AML result. The nested record lists are free-form objects.
 type AMLPersonMatch struct {
 	Name               string                   `json:"name"`
-	Addresses          []map[string]interface{} `json:"addresses"`
+	Addresses          []string                 `json:"addresses"`
 	NewsSummary        []AMLNewsSummary         `json:"news_summary"`
-	Aliases            []map[string]interface{} `json:"aliases"`
+	Aliases            []string                 `json:"aliases"`
 	Associations       []map[string]interface{} `json:"associations"`
-	DatesOfBirth       []map[string]interface{} `json:"dates_of_birth"`
+	DatesOfBirth       []string                 `json:"dates_of_birth"`
 	EnforcementActions []map[string]interface{} `json:"enforcement_actions"`
-	Nationalities      []map[string]interface{} `json:"nationalities"`
+	Nationalities      []string                 `json:"nationalities"`
 	Sanctions          []map[string]interface{} `json:"sanctions"`
 	PEP                *AMLPEP                  `json:"pep,omitempty"`
 }

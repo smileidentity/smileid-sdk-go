@@ -47,10 +47,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: stable
+          # Pinned, not stable: golangci-lint fails ("could not import
+          # math/rand/v2") when the stdlib is newer than the Go it was built
+          # with, so a new Go release would block release.yml. Bump this and
+          # the golangci-lint version below together, in one PR. Dependabot
+          # cannot bump either.
+          go-version: '1.27.x'
       - name: golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
-          # Keep in step with the runner's stable Go: an older binary panics
-          # in go/types when the toolchain stdlib is newer than it understands.
+          # Bump with go-version above. This release supports Go 1.27.
           version: v2.14.0
