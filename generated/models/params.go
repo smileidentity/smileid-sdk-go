@@ -165,3 +165,59 @@ type SupportedDocumentsParams struct {
 	CountryCode *string
 	Locale      *string
 }
+
+// OneTimeAMLParams holds the request fields for One-Time AML screening
+// (POST /v3/aml and POST /v3/aml/sync). Countries and FullName are required.
+// Countries and Aliases are sent as JSON-encoded array strings. UserID is a
+// body field and is required when SearchExistingUser is true.
+type OneTimeAMLParams struct {
+	Countries          []string
+	FullName           string
+	Consent            Consent
+	UserDetails        UserDetails
+	BirthYear          *string
+	StrictMatch        *bool
+	Aliases            []string
+	SearchExistingUser *bool
+	UserID             *string
+	CallbackURL        *string
+	PartnerParams      map[string]string
+	Metadata           []MetadataEntry
+}
+
+// OneTimeAMLSyncParams holds the request fields for the synchronous One-Time
+// AML screening. CallbackURL is optional and never triggers a webhook.
+// IdempotencyKey, when set, is sent as the SmileID-Idempotency-Key header so a
+// repeated submission returns the original result instead of a second,
+// separately billed screening.
+type OneTimeAMLSyncParams struct {
+	OneTimeAMLParams
+	IdempotencyKey *string
+}
+
+// AMLMonitoringParams holds the request fields for AML Monitoring screening
+// (POST /v3/aml/monitoring). Countries is required. FullName is required
+// unless SearchExistingUser is true, and UserID is then required.
+type AMLMonitoringParams struct {
+	Countries          []string
+	FullName           *string
+	Consent            Consent
+	UserDetails        UserDetails
+	BirthYear          *string
+	StrictMatch        *bool
+	Aliases            []string
+	SearchExistingUser *bool
+	UserID             *string
+	CallbackURL        *string
+	PartnerParams      map[string]string
+	Metadata           []MetadataEntry
+}
+
+// AMLMonitoringNewsParams holds the query fields for
+// GET /v3/aml/monitoring/{job_id}/news/{reference}. NewsCategory is required;
+// Page and Limit default to 1 and 25 on the server.
+type AMLMonitoringNewsParams struct {
+	NewsCategory string
+	Page         *int
+	Limit        *int
+}
