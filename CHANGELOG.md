@@ -7,9 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- AML operations, matching API spec v3.1165.0, on the new `client.AML` resource:
+  - `AML.Screen` submits a One-Time AML screening (`POST /v3/aml`).
+  - `AML.ScreenSync` submits one and returns the result inline (`POST /v3/aml/sync`). `IdempotencyKey` sets the `SmileID-Idempotency-Key` header.
+  - `AML.Monitor` submits an AML Monitoring screening (`POST /v3/aml/monitoring`).
+  - `AML.MonitoringNews` reads the adverse-media articles for a person reference (`GET /v3/aml/monitoring/{job_id}/news/{reference}`).
+
 ### Changed
 
-- Each operation now carries its token `product` from the spec's `x-smile-token-product` extension (spec v3.1188.0) instead of a hand-kept path table. Token claims are unchanged.
+- Each operation now carries its token `product` from the spec's `x-smile-token-product` extension (spec v3.1192.0) instead of a hand-kept path table. Token claims are unchanged.
+
+### Fixed
+
+- `AMLPersonMatch` now parses `addresses`, `aliases`, `dates_of_birth` and `nationalities` as lists of strings, as spec v3.1192.0 defines them. They were typed as lists of objects, so a real response failed to parse. The type has not been released.
+- AML requests now mint their token with the `product` claim the spec requires: `one_time_aml` for `POST /v3/aml` and `POST /v3/aml/sync`, and `aml` for `POST /v3/aml/monitoring` and the news lookup, as set by `x-smile-token-product` in the spec.
 
 ## [13.0.0] - 2026-11-09
 

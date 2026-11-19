@@ -290,6 +290,43 @@ _, err = client.Users.ClearFraud(ctx, "user_123", usesmileid.ClearFraudParams{
 
 A fraud report needs a reason when `IsFraud` is true, and notes when it is false or the reason is `OTHER`. The SDK enforces these rules before sending.
 
+### AML screening and monitoring
+
+One-Time AML screens a name against sanctions, PEP and adverse-media lists. `Screen` returns an accepted job and delivers the result to your callback URL. `ScreenSync` returns the terminal result in the response. Set `IdempotencyKey` (16 to 128 characters of `A-Z a-z 0-9 - _`) so a retry returns the original result instead of a second, billed screening.
+
+```go
+params := usesmileid.OneTimeAMLParams{
+    Countries:   []string{"NG", "KE"},
+    FullName:    "John Doe",
+    UserDetails: userDetails,
+    Consent:     consent,
+}
+
+accepted, err := client.AML.Screen(ctx, params)
+
+result, err := client.AML.ScreenSync(ctx, usesmileid.OneTimeAMLSyncParams{
+    OneTimeAMLParams: params,
+    IdempotencyKey:   usesmileid.String("onboarding-8f14e45fceea167a"),
+})
+fmt.Println(result.Status, result.NoOfPersonsFound)
+```
+
+AML Monitoring enrols the entity for ongoing monitoring. `FullName` is required unless `SearchExistingUser` is true, which in turn needs `UserID`. `MonitoringNews` reads the adverse-media articles for one person reference in the result.
+
+```go
+accepted, err := client.AML.Monitor(ctx, usesmileid.AMLMonitoringParams{
+    Countries:   []string{"NG", "GH"},
+    FullName:    usesmileid.String("Jane Doe"),
+    UserDetails: userDetails,
+    Consent:     consent,
+})
+
+news, err := client.AML.MonitoringNews(ctx, "job_...", "ref_001", usesmileid.AMLMonitoringNewsParams{
+    NewsCategory: "financial_crime",
+    Page:         usesmileid.Ptr(1),
+})
+```
+
 ### Services
 
 The bank codes, supported ID types and supported documents endpoints need no authentication. The ID status endpoint does.

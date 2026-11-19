@@ -32,3 +32,26 @@ const (
 	ComparisonImageTypeIDPhoto  = "ID_PHOTO"
 	ComparisonImageTypePortrait = "PORTRAIT"
 )
+
+// AML Monitoring news categories accepted by
+// GET /v3/aml/monitoring/{job_id}/news/{reference}.
+var AMLNewsCategories = []string{
+	"arms_trafficking",
+	"credit_update",
+	"environmental_crime",
+	"financial_crime",
+	"human_rights_violation",
+	"leadership_change",
+	"legal_risk",
+	"location_change",
+	"narcotics",
+	"other",
+	"other_crime",
+	"ownership_change",
+	"product_change",
+	"regulatory",
+	"sexual_crime",
+	"technology_event",
+	"terrorism",
+	"violent_crime",
+}
