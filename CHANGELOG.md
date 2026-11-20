@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Basic KYC operations, matching API spec v3.1215.0, on the new `client.BasicKYC` resource:
+  - `BasicKYC.Verify` submits a Basic KYC verification (`POST /v3/basic_kyc`).
+  - `BasicKYC.VerifySync` submits one and returns the result inline (`POST /v3/basic_kyc/sync`). It is not retried, because a repeat would bill a second lookup. It sends a callback URL only when the call sets one, never the client's default, because the sync endpoint ignores it.
+  - New types: `BasicKYCParams`, `BasicKYCResult`, `BasicKYCMatchResults` and `BasicKYCUserProvidedInfo`.
+  - Both operations mint their token with the `basic_kyc` product claim, taken from `x-smile-token-product`.
+
 ## [13.1.0] - 2026-11-19
 
 ### Added
@@ -16,12 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `AML.ScreenSync` submits one and returns the result inline (`POST /v3/aml/sync`). `IdempotencyKey` sets the `SmileID-Idempotency-Key` header.
   - `AML.Monitor` submits an AML Monitoring screening (`POST /v3/aml/monitoring`).
   - `AML.MonitoringNews` reads the adverse-media articles for a person reference (`GET /v3/aml/monitoring/{job_id}/news/{reference}`).
-
-- Basic KYC operations, matching API spec v3.1215.0, on the new `client.BasicKYC` resource:
-  - `BasicKYC.Verify` submits a Basic KYC verification (`POST /v3/basic_kyc`).
-  - `BasicKYC.VerifySync` submits one and returns the result inline (`POST /v3/basic_kyc/sync`). It is not retried, because a repeat would bill a second lookup. It sends a callback URL only when the call sets one, never the client's default, because the sync endpoint ignores it.
-  - New types: `BasicKYCParams`, `BasicKYCResult`, `BasicKYCMatchResults` and `BasicKYCUserProvidedInfo`.
-  - Both operations mint their token with the `basic_kyc` product claim, taken from `x-smile-token-product`.
 
 ### Changed
 
