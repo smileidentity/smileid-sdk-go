@@ -204,6 +204,52 @@ type OneTimeAMLResult struct {
 	DeviceSignals    map[string]interface{} `json:"device_signals"`
 }
 
+// BasicKYCMatchResults holds the verdict per submitted field. Each verdict is
+// one of "exact_match", "partial_match", "transposed", "no_match" or
+// "not_provided".
+type BasicKYCMatchResults struct {
+	Overall           string `json:"overall"`
+	Names             string `json:"names"`
+	FirstName         string `json:"first_name"`
+	LastName          string `json:"last_name"`
+	OtherNames        string `json:"other_names"`
+	DateOfBirth       string `json:"date_of_birth"`
+	Gender            string `json:"gender"`
+	PhoneNumber       string `json:"phone_number"`
+	SecondaryIDNumber string `json:"secondary_id_number"`
+}
+
+// BasicKYCUserProvidedInfo echoes the identity details submitted with a Basic
+// KYC request.
+type BasicKYCUserProvidedInfo struct {
+	GivenNames  *string `json:"given_names"`
+	LastName    *string `json:"last_name"`
+	Email       *string `json:"email"`
+	PhoneNumber *string `json:"phone_number"`
+	IDNumber    *string `json:"id_number"`
+}
+
+// BasicKYCResult is the terminal Basic KYC result. It is the 200 body of
+// POST /v3/basic_kyc/sync and the payload the callback delivers for
+// POST /v3/basic_kyc. Status is "clear", "attention", "block" or "error".
+// Reason is nil for a clear outcome. MatchResults is nil when the check never
+// produced a verdict. The result carries no identity fields.
+type BasicKYCResult struct {
+	Status           string                   `json:"status"`
+	Message          string                   `json:"message"`
+	Reason           *string                  `json:"reason"`
+	CreatedAt        string                   `json:"created_at"`
+	CompletedAt      string                   `json:"completed_at,omitempty"`
+	Product          string                   `json:"product"`
+	PartnerParams    map[string]interface{}   `json:"partner_params"`
+	MatchResults     *BasicKYCMatchResults    `json:"match_results"`
+	UserProvidedInfo BasicKYCUserProvidedInfo `json:"user_provided_info"`
+	Consent          map[string]interface{}   `json:"consent"`
+	Antifraud        map[string]interface{}   `json:"antifraud"`
+	DeviceSignals    map[string]interface{}   `json:"device_signals"`
+	KYCReceipt       *string                  `json:"kyc_receipt"`
+}
+
 // AMLMonitoringNewsMeta is the paging block of an AMLMonitoringNewsResponse.
 type AMLMonitoringNewsMeta struct {
 	CurrentPage int `json:"current_page"`

@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `AML.Monitor` submits an AML Monitoring screening (`POST /v3/aml/monitoring`).
   - `AML.MonitoringNews` reads the adverse-media articles for a person reference (`GET /v3/aml/monitoring/{job_id}/news/{reference}`).
 
+- Basic KYC operations, matching API spec v3.1215.0, on the new `client.BasicKYC` resource:
+  - `BasicKYC.Verify` submits a Basic KYC verification (`POST /v3/basic_kyc`).
+  - `BasicKYC.VerifySync` submits one and returns the result inline (`POST /v3/basic_kyc/sync`). It is not retried, because a repeat would bill a second lookup.
+  - New types: `BasicKYCParams`, `BasicKYCResult`, `BasicKYCMatchResults` and `BasicKYCUserProvidedInfo`.
+  - Both operations mint their token with the `basic_kyc` product claim, taken from `x-smile-token-product`.
+
 ### Changed
 
 - Each operation now carries its token `product` from the spec's `x-smile-token-product` extension (spec v3.1192.0) instead of a hand-kept path table. Token claims are unchanged.

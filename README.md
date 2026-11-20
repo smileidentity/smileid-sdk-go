@@ -123,6 +123,27 @@ if err != nil {
 fmt.Println(accepted.JobID, accepted.IsAccepted())
 ```
 
+### Basic KYC
+
+Basic KYC checks the details you submit against the ID authority's record and reports a match verdict per field. It never returns the record itself. `Verify` returns an accepted job and delivers the result to your callback URL. `VerifySync` returns the result in the response.
+
+```go
+params := usesmileid.BasicKYCParams{
+    Country:     "NG",
+    IDType:      "NIN",
+    IDNumber:    "12345678901",
+    UserDetails: userDetails,
+    Consent:     consent,
+}
+
+accepted, err := client.BasicKYC.Verify(ctx, params)
+
+result, err := client.BasicKYC.VerifySync(ctx, params)
+fmt.Println(result.Status, result.MatchResults.Overall)
+```
+
+`VerifySync` is not retried. If the ID authority is unavailable (424), does not answer in time (408) or fails (500), the call returns an error. The job is still recorded, so read its outcome with `client.Verifications.Retrieve` instead of resubmitting, which would run and bill a second lookup. `MatchResults` is nil when the check produced no verdict.
+
 ### Document verification
 
 ```go

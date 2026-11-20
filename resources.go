@@ -31,6 +31,59 @@ func (r *EnhancedKYCResource) Verify(ctx context.Context, params EnhancedKYCPara
 	return &out, nil
 }
 
+// BasicKYCResource covers Basic KYC verification, which reports a match
+// verdict per submitted field.
+type BasicKYCResource struct{ c *Client }
+
+// Verify submits a Basic KYC verification (POST /v3/basic_kyc). The result is
+// delivered to the callback URL.
+func (r *BasicKYCResource) Verify(ctx context.Context, params BasicKYCParams, opts ...RequestOption) (*AcceptedResponse, error) {
+	ro := resolveOptions(opts)
+	if err := validateUserDetails(params.UserDetails); err != nil {
+		return nil, err
+	}
+	cb, err := r.c.resolveCallback(params.CallbackURL, ro)
+	if err != nil {
+		return nil, err
+	}
+	params.CallbackURL = cb
+
+	ctx, cancel := r.c.withTimeout(ctx, ro)
+	defer cancel()
+
+	var out AcceptedResponse
+	if err := operations.BasicKYC(ctx, r.c.transport, params, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// VerifySync submits a Basic KYC verification and returns the terminal result
+// inline (POST /v3/basic_kyc/sync). The callback URL is optional and never
+// receives a webhook. A verification that could not be completed returns an
+// error (408, 424 or 500). Read its outcome with Verifications.Retrieve rather
+// than resubmitting, which would run and bill a second lookup.
+func (r *BasicKYCResource) VerifySync(ctx context.Context, params BasicKYCParams, opts ...RequestOption) (*BasicKYCResult, error) {
+	ro := resolveOptions(opts)
+	if err := validateUserDetails(params.UserDetails); err != nil {
+		return nil, err
+	}
+	cb, err := r.c.resolveCallback(params.CallbackURL, ro)
+	if err != nil {
+		return nil, err
+	}
+	params.CallbackURL = cb
+
+	ctx, cancel := r.c.withTimeout(ctx, ro)
+	defer cancel()
+
+	var out BasicKYCResult
+	if err := operations.BasicKYCSync(ctx, r.c.transport, params, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 // DocumentsResource covers document verification, enhanced document
 // verification and residency document verification.
 type DocumentsResource struct{ c *Client }

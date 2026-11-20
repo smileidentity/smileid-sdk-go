@@ -157,6 +157,44 @@ func TestEnhancedKYC(t *testing.T) {
 	})
 }
 
+func TestBasicKYC(t *testing.T) {
+	p := models.BasicKYCParams{
+		Country: "NG", IDType: "NIN", IDNumber: "1", UserDetails: userDetails, Consent: consent,
+		CallbackURL: str("https://cb"), BankCode: str("058"), Operator: str("MTN"),
+		PartnerParams: partner, Metadata: metadata,
+	}
+	parts := []string{"country=NG", "id_type=NIN", "id_number=1", userDetailsJSON, consentJSON,
+		"callback_url=https://cb", "bank_code=058", "operator=MTN", partnerJSON, metadataJSON}
+
+	t.Run("async", func(t *testing.T) {
+		rec, out := &recorder{}, &models.AcceptedResponse{}
+		err := BasicKYC(ctx, rec, p, out)
+		check(t, rec, err, out, shape{Method: "POST", Path: "/v3/basic_kyc", Authenticated: true, BodyKind: BodyMultipart, Parts: parts})
+		if rec.req.Product != "basic_kyc" {
+			t.Errorf("product = %q", rec.req.Product)
+		}
+	})
+
+	t.Run("sync", func(t *testing.T) {
+		rec, out := &recorder{}, &models.BasicKYCResult{}
+		err := BasicKYCSync(ctx, rec, p, out)
+		check(t, rec, err, out, shape{Method: "POST", Path: "/v3/basic_kyc/sync", Authenticated: true, BodyKind: BodyMultipart, Parts: parts})
+		if rec.req.Product != "basic_kyc" || rec.req.Idempotent {
+			t.Errorf("product = %q, idempotent = %v", rec.req.Product, rec.req.Idempotent)
+		}
+	})
+
+	t.Run("required fields only", func(t *testing.T) {
+		rec, out := &recorder{}, &models.AcceptedResponse{}
+		err := BasicKYC(ctx, rec, models.BasicKYCParams{
+			Country: "NG", IDType: "NIN", IDNumber: "1", UserDetails: userDetails, Consent: consent,
+		}, out)
+		want := shape{Method: "POST", Path: "/v3/basic_kyc", Authenticated: true, BodyKind: BodyMultipart,
+			Parts: []string{"country=NG", "id_type=NIN", "id_number=1", userDetailsJSON, consentJSON}}
+		check(t, rec, err, out, want)
+	})
+}
+
 func TestDocumentVerification(t *testing.T) {
 	full := models.DocumentVerificationParams{
 		SelfieImage: img("selfie.jpg"), LivenessImages: liveness, Document: img("front.png"),
