@@ -139,10 +139,13 @@ params := usesmileid.BasicKYCParams{
 accepted, err := client.BasicKYC.Verify(ctx, params)
 
 result, err := client.BasicKYC.VerifySync(ctx, params)
-fmt.Println(result.Status, result.MatchResults.Overall)
+fmt.Println(result.Status)
+if result.MatchResults != nil {
+    fmt.Println(result.MatchResults.Overall)
+}
 ```
 
-`VerifySync` is not retried. If the ID authority is unavailable (424), does not answer in time (408) or fails (500), the call returns an error. The job is still recorded, so read its outcome with `client.Verifications.Retrieve` instead of resubmitting, which would run and bill a second lookup. `MatchResults` is nil when the check produced no verdict.
+`VerifySync` is not retried. If the ID authority is unavailable (424), does not answer in time (408) or fails (500), the call returns an error. The job may still have run, and resubmitting runs and bills a second lookup, so don't resubmit automatically. `MatchResults` is nil when the check produced no verdict. The sync endpoint ignores `callback_url`, so `VerifySync` never sends the client's default callback URL.
 
 ### Document verification
 

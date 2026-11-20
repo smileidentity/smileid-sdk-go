@@ -2,7 +2,9 @@ package usesmileid
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -44,6 +46,32 @@ func basicKYCParams() BasicKYCParams {
 	}
 }
 
+const (
+	basicKYCUserDetailsJSON = `{"given_names":"John","last_name":"Doe","email":"john@example.com"}`
+	basicKYCConsentJSON     = `{"granted":true,"granted_at":"2026-03-06T12:00:00.000Z","notice_language":"EN","notice_privacy_policy_url":"https://example.com/privacy"}`
+)
+
+// assertBasicKYCCommon checks the telemetry headers and the user_details and
+// consent parts that both Basic KYC operations send. The exact user_details
+// JSON also proves that a nil phone_number is left out.
+func assertBasicKYCCommon(t *testing.T, cap *captured, parts []capturedPart) {
+	t.Helper()
+	if got := cap.header.Get("SmileID-Source-SDK"); got != "go" {
+		t.Errorf("SmileID-Source-SDK = %q", got)
+	}
+	if got := cap.header.Get("SmileID-Source-SDK-Version"); got != sdkVersion {
+		t.Errorf("SmileID-Source-SDK-Version = %q", got)
+	}
+	if ua := cap.header.Get("User-Agent"); !strings.HasPrefix(ua, "smileid-sdk-go/"+sdkVersion+" (go/") {
+		t.Errorf("User-Agent = %q", ua)
+	}
+	assertJSONPart(t, parts, "user_details", basicKYCUserDetailsJSON)
+	if strings.Contains(string(onePart(t, parts, "user_details").content), "phone_number") {
+		t.Error("phone_number should be omitted when nil")
+	}
+	assertJSONPart(t, parts, "consent", basicKYCConsentJSON)
+}
+
 func TestBasicKYCVerifyGoldenRequest(t *testing.T) {
 	var cap captured
 	c := testClient(t, captureHandler(&cap, http.StatusAccepted, basicKYCAcceptedBody))
@@ -77,8 +105,7 @@ func TestBasicKYCVerifyGoldenRequest(t *testing.T) {
 	assertScalar(t, parts, "operator", "MTN")
 	assertJSONPart(t, parts, "partner_params", `{"order_id":"ORD-12345"}`)
 	assertJSONPart(t, parts, "metadata", `[{"name":"k","value":"v"}]`)
-	onePart(t, parts, "user_details")
-	onePart(t, parts, "consent")
+	assertBasicKYCCommon(t, &cap, parts)
 
 	if resp.Status != "accepted" || resp.JobID != "job_01h8x9y2z3a4b5c6d7e8f9g0h1" {
 		t.Errorf("response = %+v", resp)
@@ -117,10 +144,18 @@ func TestBasicKYCVerifySyncGoldenRequestAndResult(t *testing.T) {
 	if cap.header.Get("SmileID-Idempotency-Key") != "" {
 		t.Error("basic_kyc/sync has no idempotency key")
 	}
+	if cap.header.Get("SmileID-Partner-ID") != "" || cap.header.Get("User-ID") != "" {
+		t.Error("basic_kyc/sync must send neither SmileID-Partner-ID nor User-ID")
+	}
 	parts := parseMultipart(t, cap.contentType, cap.body)
 	assertScalar(t, parts, "country", "NG")
+	assertScalar(t, parts, "id_type", "NIN")
 	assertScalar(t, parts, "id_number", "12345678901")
 	assertNoPart(t, parts, "callback_url")
+	for _, name := range []string{"bank_code", "operator", "partner_params", "metadata"} {
+		assertNoPart(t, parts, name)
+	}
+	assertBasicKYCCommon(t, &cap, parts)
 
 	if res.Status != "attention" || res.Reason == nil || *res.Reason != "partial_match" || res.Product != "basic_kyc" {
 		t.Errorf("status/reason/product = %q %v %q", res.Status, res.Reason, res.Product)
@@ -169,29 +204,61 @@ func TestBasicKYCVerifySyncErroredResult(t *testing.T) {
 }
 
 func TestBasicKYCVerifySyncIsNotRetried(t *testing.T) {
-	for _, status := range []int{http.StatusRequestTimeout, http.StatusFailedDependency, http.StatusInternalServerError} {
-		calls := 0
-		c := testClient(t, func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/v3/token" {
-				serveToken(w)
-				return
-			}
-			calls++
-			w.Header().Set("Content-Type", "application/json")
-			w.Header().Set("SmileID-Job-ID", "job_01h8x9y2z3a4b5c6d7e8f9g0h1")
-			w.WriteHeader(status)
-			_, _ = w.Write([]byte(`{"status":"Request Timeout","message":"The ID authority did not respond in time."}`))
-		})
-		c.cfg.maxRetries = 2
-
-		_, err := c.BasicKYC.VerifySync(context.Background(), basicKYCParams())
-		if err == nil {
-			t.Errorf("status %d: want error", status)
-		}
-		if calls != 1 {
-			t.Errorf("status %d: calls = %d, want 1 (a retry would bill a second lookup)", status, calls)
-		}
+	// A 500 is a status the transport retries for idempotent calls, so a
+	// second request here would mean VerifySync was marked idempotent.
+	if !isRetryableStatus(http.StatusInternalServerError) {
+		t.Fatal("500 must be a retryable status for this test to mean anything")
 	}
+	calls := 0
+	c := testClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v3/token" {
+			serveToken(w)
+			return
+		}
+		calls++
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"status":"Internal Server Error","message":"The ID authority failed."}`))
+	})
+	c.cfg.maxRetries = 2
+
+	_, err := c.BasicKYC.VerifySync(context.Background(), basicKYCParams())
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("err = %T %v, want *APIError with status 500", err, err)
+	}
+	if calls != 1 {
+		t.Errorf("calls = %d, want 1 (a retry would bill a second lookup)", calls)
+	}
+}
+
+func TestBasicKYCVerifySyncNeverSendsDefaultCallback(t *testing.T) {
+	var cap captured
+	c := testClient(t, captureHandler(&cap, http.StatusOK, basicKYCResultBody))
+	c.cfg.defaultCallbackURL = "https://example.com/default"
+
+	if _, err := c.BasicKYC.VerifySync(context.Background(), basicKYCParams()); err != nil {
+		t.Fatalf("VerifySync: %v", err)
+	}
+	assertNoPart(t, parseMultipart(t, cap.contentType, cap.body), "callback_url")
+
+	p := basicKYCParams()
+	p.CallbackURL = String("https://example.com/explicit")
+	if _, err := c.BasicKYC.VerifySync(context.Background(), p); err != nil {
+		t.Fatalf("VerifySync: %v", err)
+	}
+	assertScalar(t, parseMultipart(t, cap.contentType, cap.body), "callback_url", "https://example.com/explicit")
+}
+
+func TestBasicKYCVerifyUsesDefaultCallback(t *testing.T) {
+	var cap captured
+	c := testClient(t, captureHandler(&cap, http.StatusAccepted, basicKYCAcceptedBody))
+	c.cfg.defaultCallbackURL = "https://example.com/default"
+
+	if _, err := c.BasicKYC.Verify(context.Background(), basicKYCParams()); err != nil {
+		t.Fatalf("Verify: %v", err)
+	}
+	assertScalar(t, parseMultipart(t, cap.contentType, cap.body), "callback_url", "https://example.com/default")
 }
 
 func TestBasicKYCValidation(t *testing.T) {
@@ -224,8 +291,27 @@ func TestBasicKYCValidation(t *testing.T) {
 
 func TestBasicKYCOperationsSurfaceAPIErrors(t *testing.T) {
 	c := testClient(t, captureHandler(&captured{}, http.StatusBadRequest, `{"status":"Bad Request","message":"bad"}`))
-	if _, err := c.BasicKYC.Verify(context.Background(), basicKYCParams()); err == nil {
-		t.Error("Verify: want error")
+	calls := map[string]func() error{
+		"verify": func() error {
+			_, err := c.BasicKYC.Verify(context.Background(), basicKYCParams())
+			return err
+		},
+		"verify_sync": func() error {
+			_, err := c.BasicKYC.VerifySync(context.Background(), basicKYCParams())
+			return err
+		},
+	}
+	for name, call := range calls {
+		t.Run(name, func(t *testing.T) {
+			err := call()
+			var invalid *InvalidRequestError
+			if !errors.As(err, &invalid) {
+				t.Fatalf("err = %T %v, want *InvalidRequestError", err, err)
+			}
+			if invalid.StatusCode != http.StatusBadRequest || invalid.Message != "bad" {
+				t.Errorf("status/message = %d %q", invalid.StatusCode, invalid.Message)
+			}
+		})
 	}
 }
 

@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Basic KYC operations, matching API spec v3.1215.0, on the new `client.BasicKYC` resource:
   - `BasicKYC.Verify` submits a Basic KYC verification (`POST /v3/basic_kyc`).
-  - `BasicKYC.VerifySync` submits one and returns the result inline (`POST /v3/basic_kyc/sync`). It is not retried, because a repeat would bill a second lookup.
+  - `BasicKYC.VerifySync` submits one and returns the result inline (`POST /v3/basic_kyc/sync`). It is not retried, because a repeat would bill a second lookup. It sends a callback URL only when the call sets one, never the client's default, because the sync endpoint ignores it.
   - New types: `BasicKYCParams`, `BasicKYCResult`, `BasicKYCMatchResults` and `BasicKYCUserProvidedInfo`.
   - Both operations mint their token with the `basic_kyc` product claim, taken from `x-smile-token-product`.
 

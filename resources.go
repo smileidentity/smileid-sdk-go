@@ -59,16 +59,18 @@ func (r *BasicKYCResource) Verify(ctx context.Context, params BasicKYCParams, op
 }
 
 // VerifySync submits a Basic KYC verification and returns the terminal result
-// inline (POST /v3/basic_kyc/sync). The callback URL is optional and never
-// receives a webhook. A verification that could not be completed returns an
-// error (408, 424 or 500). Read its outcome with Verifications.Retrieve rather
-// than resubmitting, which would run and bill a second lookup.
+// inline (POST /v3/basic_kyc/sync). The endpoint ignores callback_url, so the
+// client's default callback URL is never sent; a callback URL set on the call
+// is sent but never receives a webhook. A verification that could not be
+// completed returns an error (408, 424 or 500). The job may still have run,
+// and resubmitting runs and bills a second lookup, so don't resubmit
+// automatically.
 func (r *BasicKYCResource) VerifySync(ctx context.Context, params BasicKYCParams, opts ...RequestOption) (*BasicKYCResult, error) {
 	ro := resolveOptions(opts)
 	if err := validateUserDetails(params.UserDetails); err != nil {
 		return nil, err
 	}
-	cb, err := r.c.resolveCallback(params.CallbackURL, ro)
+	cb, err := resolveExplicitCallback(params.CallbackURL, ro)
 	if err != nil {
 		return nil, err
 	}
