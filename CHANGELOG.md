@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [13.1.0] - 2026-11-19
+
 ### Added
 
 - AML operations, matching API spec v3.1165.0, on the new `client.AML` resource:
