@@ -73,6 +73,18 @@ func captureHandler(cap *captured, status int, respBody string) http.HandlerFunc
 	}
 }
 
+// withJobID wraps a handler so every non-token response carries the given
+// SmileID-Job-ID header. The header name is written in lower case, as an API
+// Gateway may send it, so the SDK's lookup must not depend on its case.
+func withJobID(jobID string, h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v3/token" {
+			w.Header()["smileid-job-id"] = []string{jobID}
+		}
+		h(w, r)
+	}
+}
+
 type capturedPart struct {
 	name        string
 	filename    string

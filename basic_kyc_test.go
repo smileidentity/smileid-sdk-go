@@ -195,7 +195,7 @@ func TestBasicKYCVerifySyncErroredResult(t *testing.T) {
 		t.Fatalf("VerifySync: %v", err)
 	}
 	assertScalar(t, parseMultipart(t, cap.contentType, cap.body), "callback_url", "https://example.com/stored")
-	if res.Status != "error" || res.MatchResults != nil || res.PartnerParams != nil || res.KYCReceipt != nil || res.CompletedAt != "" {
+	if res.Status != "error" || res.MatchResults != nil || res.PartnerParams != nil || res.KYCReceipt != nil || res.CompletedAt != "" || res.JobID != "" {
 		t.Errorf("result = %+v", res)
 	}
 	if res.UserProvidedInfo.Email != nil || *res.UserProvidedInfo.GivenNames != "John" {
@@ -204,31 +204,105 @@ func TestBasicKYCVerifySyncErroredResult(t *testing.T) {
 }
 
 func TestBasicKYCVerifySyncIsNotRetried(t *testing.T) {
-	// A 500 is a status the transport retries for idempotent calls, so a
-	// second request here would mean VerifySync was marked idempotent.
-	if !isRetryableStatus(http.StatusInternalServerError) {
-		t.Fatal("500 must be a retryable status for this test to mean anything")
+	// The transport retries 408 and 500 for idempotent calls, so a second
+	// request here would mean VerifySync was marked idempotent.
+	for _, status := range []int{http.StatusRequestTimeout, http.StatusFailedDependency, http.StatusInternalServerError} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			calls := 0
+			c := testClient(t, withJobID("job_not_retried", func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/v3/token" {
+					serveToken(w)
+					return
+				}
+				calls++
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(status)
+				_, _ = w.Write([]byte(`{"status":"error","message":"The ID authority failed."}`))
+			}))
+			c.cfg.maxRetries = 2
+
+			_, err := c.BasicKYC.VerifySync(context.Background(), basicKYCParams())
+			var base *Error
+			var apiErr *APIError
+			switch {
+			case errors.As(err, &apiErr):
+				base = apiErr.smileIDError
+			case errors.As(err, &base):
+			default:
+				t.Fatalf("err = %T %v, want an HTTP error", err, err)
+			}
+			if base.StatusCode != status || base.JobID != "job_not_retried" {
+				t.Errorf("StatusCode = %d, JobID = %q", base.StatusCode, base.JobID)
+			}
+			if calls != 1 {
+				t.Errorf("calls = %d, want 1 (a retry would bill a second lookup)", calls)
+			}
+		})
 	}
-	calls := 0
+}
+
+func TestBasicKYCVerifySyncReturnsJobIDFromHeader(t *testing.T) {
+	var cap captured
+	c := testClient(t, withJobID("job_01h8x9y2z3a4b5c6d7e8f9g0h1", captureHandler(&cap, http.StatusOK, basicKYCResultBody)))
+
+	res, err := c.BasicKYC.VerifySync(context.Background(), basicKYCParams())
+	if err != nil {
+		t.Fatalf("VerifySync: %v", err)
+	}
+	if res.JobID != "job_01h8x9y2z3a4b5c6d7e8f9g0h1" {
+		t.Errorf("JobID = %q", res.JobID)
+	}
+	if res.Status != "attention" {
+		t.Errorf("Status = %q", res.Status)
+	}
+}
+
+// TestBasicKYCVerifySyncTimeoutThenRetrieve follows the README's advice for a
+// 408: read the job ID from the error and read the outcome from the status
+// endpoint, without resubmitting.
+func TestBasicKYCVerifySyncTimeoutThenRetrieve(t *testing.T) {
+	var syncCalls int
+	var statusPath string
 	c := testClient(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/v3/token" {
-			serveToken(w)
-			return
-		}
-		calls++
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(`{"status":"Internal Server Error","message":"The ID authority failed."}`))
+		switch {
+		case r.URL.Path == "/v3/token":
+			serveToken(w)
+		case r.URL.Path == "/v3/basic_kyc/sync":
+			syncCalls++
+			w.Header().Set("SmileID-Job-ID", "job_timeout_01")
+			w.WriteHeader(http.StatusRequestTimeout)
+			_, _ = w.Write([]byte(`{"status":"Request Timeout","message":"The ID authority did not answer in time."}`))
+		case strings.HasPrefix(r.URL.Path, "/v3/status/"):
+			statusPath = r.URL.Path
+			_, _ = w.Write([]byte(`{"status":"clear","job_id":"job_timeout_01","user_id":"user_01","message":"Job completed"}`))
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusTeapot)
+		}
 	})
-	c.cfg.maxRetries = 2
 
 	_, err := c.BasicKYC.VerifySync(context.Background(), basicKYCParams())
-	var apiErr *APIError
-	if !errors.As(err, &apiErr) || apiErr.StatusCode != http.StatusInternalServerError {
-		t.Fatalf("err = %T %v, want *APIError with status 500", err, err)
+	var timeout *Error
+	if !errors.As(err, &timeout) || timeout.StatusCode != http.StatusRequestTimeout {
+		t.Fatalf("err = %T %v, want *Error with status 408", err, err)
 	}
-	if calls != 1 {
-		t.Errorf("calls = %d, want 1 (a retry would bill a second lookup)", calls)
+	if timeout.JobID == "" {
+		t.Fatal("the 408 error carries no job ID")
+	}
+
+	status, err := c.Verifications.Retrieve(context.Background(), timeout.JobID)
+	if err != nil {
+		t.Fatalf("Retrieve: %v", err)
+	}
+	if statusPath != "/v3/status/job_timeout_01" {
+		t.Errorf("status request path = %q", statusPath)
+	}
+	if status.Status != "clear" || status.JobID != "job_timeout_01" || !status.IsComplete() {
+		t.Errorf("status = %+v", status)
+	}
+	if syncCalls != 1 {
+		t.Errorf("sync calls = %d, want 1", syncCalls)
 	}
 }
 

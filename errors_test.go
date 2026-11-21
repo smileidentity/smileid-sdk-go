@@ -29,7 +29,7 @@ func TestParseErrorClassByStatus(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("status_%d", tt.status), func(t *testing.T) {
-			err := parseError(tt.status, []byte(tt.body), "")
+			err := parseError(tt.status, []byte(tt.body), "", "")
 			if !tt.as(err) {
 				t.Errorf("status %d produced %T", tt.status, err)
 			}
@@ -38,7 +38,7 @@ func TestParseErrorClassByStatus(t *testing.T) {
 }
 
 func TestParseErrorUnmappedNonServerStatusReturnsBaseError(t *testing.T) {
-	err := parseError(418, []byte(`{"status":"I'm a teapot","message":"short and stout"}`), "")
+	err := parseError(418, []byte(`{"status":"I'm a teapot","message":"short and stout"}`), "", "")
 
 	var apiErr *APIError
 	if errors.As(err, &apiErr) {
@@ -54,7 +54,7 @@ func TestParseErrorUnmappedNonServerStatusReturnsBaseError(t *testing.T) {
 }
 
 func TestParseErrorStatusMessageShape(t *testing.T) {
-	err := parseError(400, []byte(`{"status":"Bad Request","message":"Either email or phone_number is required."}`), "req-1")
+	err := parseError(400, []byte(`{"status":"Bad Request","message":"Either email or phone_number is required."}`), "req-1", "")
 	var ire *InvalidRequestError
 	if !errors.As(err, &ire) {
 		t.Fatalf("err = %T", err)
@@ -77,7 +77,7 @@ func TestParseErrorStatusMessageShape(t *testing.T) {
 }
 
 func TestParseErrorErrorCodeShape(t *testing.T) {
-	err := parseError(403, []byte(`{"error":"You are not authorized to do that.","code":"2413"}`), "")
+	err := parseError(403, []byte(`{"error":"You are not authorized to do that.","code":"2413"}`), "", "")
 	var perm *PermissionError
 	if !errors.As(err, &perm) {
 		t.Fatalf("err = %T", err)
@@ -95,7 +95,7 @@ func TestParseErrorErrorCodeShape(t *testing.T) {
 
 func TestParseErrorIDStatusShape(t *testing.T) {
 	// id_status reorders to {message, status} — same key set.
-	err := parseError(400, []byte(`{"message":"\"country\" is required","status":"Bad Request"}`), "")
+	err := parseError(400, []byte(`{"message":"\"country\" is required","status":"Bad Request"}`), "", "")
 	var ire *InvalidRequestError
 	if !errors.As(err, &ire) {
 		t.Fatalf("err = %T", err)
@@ -106,7 +106,7 @@ func TestParseErrorIDStatusShape(t *testing.T) {
 }
 
 func TestParseErrorNonJSONBody(t *testing.T) {
-	err := parseError(500, []byte("<html>gateway</html>"), "")
+	err := parseError(500, []byte("<html>gateway</html>"), "", "")
 	var apiErr *APIError
 	if !errors.As(err, &apiErr) {
 		t.Fatalf("err = %T", err)
@@ -158,5 +158,102 @@ func TestErrorRequestIDFromHeader(t *testing.T) {
 	}
 	if ire.RequestID != "abc-123" {
 		t.Errorf("RequestID = %q", ire.RequestID)
+	}
+}
+
+// syncErrorClient serves the token endpoint and answers every other request
+// with status and body, adding header (name: value) when name is set.
+func syncErrorClient(t *testing.T, status int, name, value string) *Client {
+	t.Helper()
+	return testClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v3/token" {
+			serveToken(w)
+			return
+		}
+		if name != "" {
+			w.Header()[name] = []string{value}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		fmt.Fprintf(w, `{"status":%q,"message":"The ID authority did not answer in time."}`, http.StatusText(status))
+	})
+}
+
+func TestErrorJobIDFromHeader(t *testing.T) {
+	c := syncErrorClient(t, http.StatusRequestTimeout, "Smileid-Job-Id", "job_408")
+
+	_, err := c.BasicKYC.VerifySync(context.Background(), basicKYCParams())
+	var base *Error
+	if !errors.As(err, &base) {
+		t.Fatalf("err = %T %v, want *Error", err, err)
+	}
+	if base.StatusCode != http.StatusRequestTimeout || base.JobID != "job_408" {
+		t.Errorf("StatusCode = %d, JobID = %q", base.StatusCode, base.JobID)
+	}
+}
+
+func TestErrorJobIDHeaderIsCaseInsensitive(t *testing.T) {
+	for _, name := range []string{"SmileID-Job-ID", "smileid-job-id", "SMILEID-JOB-ID"} {
+		t.Run(name, func(t *testing.T) {
+			c := syncErrorClient(t, http.StatusFailedDependency, name, "job_424")
+
+			_, err := c.BasicKYC.VerifySync(context.Background(), basicKYCParams())
+			var base *Error
+			if !errors.As(err, &base) {
+				t.Fatalf("err = %T %v, want *Error", err, err)
+			}
+			if base.JobID != "job_424" {
+				t.Errorf("JobID = %q, want job_424", base.JobID)
+			}
+		})
+	}
+}
+
+func TestErrorWithoutJobIDHeaderHasNoJobID(t *testing.T) {
+	c := syncErrorClient(t, http.StatusInternalServerError, "", "")
+
+	_, err := c.BasicKYC.VerifySync(context.Background(), basicKYCParams())
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("err = %T %v, want *APIError", err, err)
+	}
+	if apiErr.JobID != "" {
+		t.Errorf("JobID = %q, want empty", apiErr.JobID)
+	}
+}
+
+func TestEveryParsedErrorCarriesJobID(t *testing.T) {
+	for _, status := range []int{400, 401, 402, 403, 404, 408, 409, 413, 415, 424, 429, 500, 503} {
+		t.Run(fmt.Sprintf("status_%d", status), func(t *testing.T) {
+			err := parseError(status, []byte(`{"message":"m"}`), "", "job_x")
+			var base *smileIDError
+			switch e := err.(type) {
+			case *smileIDError:
+				base = e
+			case *InvalidRequestError:
+				base = e.smileIDError
+			case *AuthenticationError:
+				base = e.smileIDError
+			case *PaymentRequiredError:
+				base = e.smileIDError
+			case *PermissionError:
+				base = e.smileIDError
+			case *NotFoundError:
+				base = e.smileIDError
+			case *ConflictError:
+				base = e.smileIDError
+			case *PayloadTooLargeError:
+				base = e.smileIDError
+			case *RateLimitError:
+				base = e.smileIDError
+			case *APIError:
+				base = e.smileIDError
+			default:
+				t.Fatalf("unexpected error type %T", err)
+			}
+			if base.JobID != "job_x" {
+				t.Errorf("JobID = %q, want job_x", base.JobID)
+			}
+		})
 	}
 }
