@@ -118,8 +118,8 @@ func EnhancedKYCSync(ctx context.Context, d Doer, p models.EnhancedKYCParams, ou
 	r.ResponseHeaders = map[string]*string{
 		"SmileID-Job-ID":     &out.JobID,
 		"User-ID":            &out.UserID,
-		"Response-Signature": &out.Signature,
-		"Response-Timestamp": &out.Timestamp,
+		"Response-Signature": &out.ResponseSignature,
+		"Response-Timestamp": &out.ResponseTimestamp,
 	}
 	buildEnhancedKYCParts(r, p)
 	return d.Do(ctx, r, out)
