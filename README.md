@@ -151,19 +151,24 @@ if result.MatchResults != nil {
 
 ```go
 result, err := client.BasicKYC.VerifySync(ctx, params)
-var httpErr *usesmileid.Error
-var apiErr *usesmileid.APIError
+var jobID string
+var httpErr *usesmileid.Error   // 408 and 424
+var apiErr *usesmileid.APIError // 500
 switch {
-case errors.As(err, &httpErr) && httpErr.JobID != "": // 408 or 424
-    status, err := client.Verifications.Retrieve(ctx, httpErr.JobID)
-    // ...
-case errors.As(err, &apiErr) && apiErr.JobID != "": // 500 after the job was created
-    status, err := client.Verifications.Retrieve(ctx, apiErr.JobID)
-    // ...
+case errors.As(err, &httpErr) && (httpErr.StatusCode == 408 || httpErr.StatusCode == 424):
+    jobID = httpErr.JobID
+case errors.As(err, &apiErr) && apiErr.StatusCode == 500:
+    jobID = apiErr.JobID
+}
+if jobID != "" {
+    status, err := client.Verifications.Retrieve(ctx, jobID)
+    if err == nil {
+        fmt.Println(status.Status)
+    }
 }
 ```
 
-A 500 (`*APIError`) with a `JobID` failed after the job was created, so handle it the same way. If it has no `JobID`, the job wasn't created.
+A 500 (`*APIError`) with a `JobID` failed after the job was created, so it is handled the same way. If it has no `JobID`, the job wasn't created. Other errors, such as a 400 (`*InvalidRequestError`) or 401 (`*AuthenticationError`), are not matched and never reach `Retrieve`.
 
 ### Document verification
 
