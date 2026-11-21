@@ -25,6 +25,7 @@ type (
 	ReportUserFraudResponse    = models.ReportUserFraudResponse
 	OneTimeAMLResult           = models.OneTimeAMLResult
 	BasicKYCResult             = models.BasicKYCResult
+	EnhancedKYCResult          = models.EnhancedKYCResult
 	BasicKYCMatchResults       = models.BasicKYCMatchResults
 	BasicKYCUserProvidedInfo   = models.BasicKYCUserProvidedInfo
 	AMLPersonMatch             = models.AMLPersonMatch
