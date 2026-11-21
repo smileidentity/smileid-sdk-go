@@ -76,6 +76,23 @@ func (c *Client) resolveCallback(explicit *string, ro *requestOptions) (*string,
 	return cb, nil
 }
 
+// resolveExplicitCallback is resolveCallback without the client's default
+// callback URL, for operations that ignore callback_url. It returns a callback
+// URL only when the caller set one on the params or with WithCallbackURL.
+func resolveExplicitCallback(explicit *string, ro *requestOptions) (*string, error) {
+	cb := explicit
+	if ro.callbackURL != nil {
+		cb = ro.callbackURL
+	}
+	if cb == nil {
+		return nil, nil
+	}
+	if err := validateHTTPSURL("callback_url", *cb); err != nil {
+		return nil, err
+	}
+	return cb, nil
+}
+
 type enrolledImageKey struct{}
 
 func withEnrolledImageGrant(ctx context.Context) context.Context {

@@ -15,6 +15,24 @@ type EnhancedKYCParams struct {
 	UserID        *string // routed to the User-ID header
 }
 
+// BasicKYCParams holds the request fields for Basic KYC verification
+// (POST /v3/basic_kyc and POST /v3/basic_kyc/sync). The user details need
+// given names, a last name, and an email or a phone number. CallbackURL is
+// optional. When the async operation omits it, the result goes to the
+// partner's default callback. The sync operation ignores it.
+type BasicKYCParams struct {
+	Country       string
+	IDType        string
+	IDNumber      string
+	UserDetails   UserDetails
+	Consent       Consent
+	CallbackURL   *string
+	BankCode      *string
+	Operator      *string
+	PartnerParams map[string]string
+	Metadata      []MetadataEntry
+}
+
 // DocumentVerificationParams holds the request fields for document
 // verification and enhanced document verification. IDType is optional for
 // documents.Verify and required for documents.VerifyEnhanced.

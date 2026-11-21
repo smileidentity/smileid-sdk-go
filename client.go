@@ -3,7 +3,7 @@ package usesmileid
 import "net/http"
 
 // Client is the Smile ID V3 API client. Construct one with [NewClient] and
-// call operations through the resource namespaces (EnhancedKYC, Documents,
+// call operations through the resource namespaces (EnhancedKYC, BasicKYC, Documents,
 // BiometricKYC, Biometric, Verifications, Users, Services, AML).
 type Client struct {
 	cfg       config
@@ -11,6 +11,8 @@ type Client struct {
 
 	// EnhancedKYC covers POST /v3/enhanced_kyc.
 	EnhancedKYC *EnhancedKYCResource
+	// BasicKYC covers POST /v3/basic_kyc and POST /v3/basic_kyc/sync.
+	BasicKYC *BasicKYCResource
 	// Documents covers document verification and enhanced document verification.
 	Documents *DocumentsResource
 	// BiometricKYC covers POST /v3/biometric_kyc.
@@ -42,6 +44,7 @@ func NewClient(cfg Config) (*Client, error) {
 
 	c := &Client{cfg: normalized, transport: newTransport(normalized, hc)}
 	c.EnhancedKYC = &EnhancedKYCResource{c}
+	c.BasicKYC = &BasicKYCResource{c}
 	c.Documents = &DocumentsResource{c}
 	c.BiometricKYC = &BiometricKYCResource{c}
 	c.Biometric = &BiometricResource{c}

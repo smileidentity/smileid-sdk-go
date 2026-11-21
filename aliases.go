@@ -24,6 +24,9 @@ type (
 	ReplayCallbackResponse     = models.ReplayCallbackResponse
 	ReportUserFraudResponse    = models.ReportUserFraudResponse
 	OneTimeAMLResult           = models.OneTimeAMLResult
+	BasicKYCResult             = models.BasicKYCResult
+	BasicKYCMatchResults       = models.BasicKYCMatchResults
+	BasicKYCUserProvidedInfo   = models.BasicKYCUserProvidedInfo
 	AMLPersonMatch             = models.AMLPersonMatch
 	AMLNewsSummary             = models.AMLNewsSummary
 	AMLPEP                     = models.AMLPEP
@@ -33,6 +36,7 @@ type (
 	AMLMonitoringNewsItem      = models.AMLMonitoringNewsItem
 
 	EnhancedKYCParams                   = models.EnhancedKYCParams
+	BasicKYCParams                      = models.BasicKYCParams
 	DocumentVerificationParams          = models.DocumentVerificationParams
 	BiometricKYCParams                  = models.BiometricKYCParams
 	ResidencyDocumentVerificationParams = models.ResidencyDocumentVerificationParams

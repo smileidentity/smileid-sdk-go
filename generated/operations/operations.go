@@ -124,6 +124,39 @@ func EnhancedKYC(ctx context.Context, d Doer, p models.EnhancedKYCParams, out *m
 	return d.Do(ctx, r, out)
 }
 
+func buildBasicKYCParts(r *Request, p models.BasicKYCParams) {
+	r.scalar("country", p.Country)
+	r.scalar("id_type", p.IDType)
+	r.scalar("id_number", p.IDNumber)
+	r.jsonPart("user_details", p.UserDetails)
+	r.jsonPart("consent", p.Consent)
+	if p.CallbackURL != nil {
+		r.scalar("callback_url", *p.CallbackURL)
+	}
+	if p.BankCode != nil {
+		r.scalar("bank_code", *p.BankCode)
+	}
+	if p.Operator != nil {
+		r.scalar("operator", *p.Operator)
+	}
+	addOptionalCommon(r, p.PartnerParams, p.Metadata)
+}
+
+// BasicKYC builds and sends POST /v3/basic_kyc.
+func BasicKYC(ctx context.Context, d Doer, p models.BasicKYCParams, out *models.AcceptedResponse) error {
+	r := &Request{Method: "POST", Path: "/v3/basic_kyc", Authenticated: true, Product: "basic_kyc", BodyKind: BodyMultipart}
+	buildBasicKYCParts(r, p)
+	return d.Do(ctx, r, out)
+}
+
+// BasicKYCSync builds and sends POST /v3/basic_kyc/sync. It is not retried: a
+// repeated submission would run and bill a second lookup.
+func BasicKYCSync(ctx context.Context, d Doer, p models.BasicKYCParams, out *models.BasicKYCResult) error {
+	r := &Request{Method: "POST", Path: "/v3/basic_kyc/sync", Authenticated: true, Product: "basic_kyc", BodyKind: BodyMultipart}
+	buildBasicKYCParts(r, p)
+	return d.Do(ctx, r, out)
+}
+
 // DocumentVerification builds and sends POST /v3/document_verification.
 func DocumentVerification(ctx context.Context, d Doer, p models.DocumentVerificationParams, out *models.AcceptedResponse) error {
 	r := &Request{Method: "POST", Path: "/v3/document_verification", Authenticated: true, Product: "document_verification", NeedsPartnerIDHeader: true, BodyKind: BodyMultipart}
