@@ -258,6 +258,29 @@ type BasicKYCResult struct {
 	JobID string `json:"-"`
 }
 
+// EnhancedKYCResult is the terminal Enhanced KYC result: the 200 body of
+// POST /v3/enhanced_kyc/sync, which is the payload the callback delivers for
+// POST /v3/enhanced_kyc. Status is "clear", "attention", "block" or "error".
+// Reason is nil for a clear outcome.
+type EnhancedKYCResult struct {
+	// JobID is the body's job_id, replaced by the SmileID-Job-ID response
+	// header of POST /v3/enhanced_kyc/sync when that header is present.
+	JobID string `json:"job_id"`
+	// UserID is the body's user_id, replaced by the User-ID response header
+	// of POST /v3/enhanced_kyc/sync when that header is present.
+	UserID     string  `json:"user_id"`
+	Status     string  `json:"status"`
+	Message    string  `json:"message"`
+	Reason     *string `json:"reason"`
+	KYCReceipt *string `json:"kyc_receipt"`
+	// Signature and Timestamp are the Response-Signature and
+	// Response-Timestamp headers of POST /v3/enhanced_kyc/sync. Verify them
+	// the way you verify a webhook's signature. They are not part of the
+	// body, so they are empty on a callback payload.
+	Signature string `json:"-"`
+	Timestamp string `json:"-"`
+}
+
 // AMLMonitoringNewsMeta is the paging block of an AMLMonitoringNewsResponse.
 type AMLMonitoringNewsMeta struct {
 	CurrentPage int `json:"current_page"`

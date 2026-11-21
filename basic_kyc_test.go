@@ -203,41 +203,54 @@ func TestBasicKYCVerifySyncErroredResult(t *testing.T) {
 	}
 }
 
-func TestBasicKYCVerifySyncIsNotRetried(t *testing.T) {
+// TestKYCVerifySyncIsNotRetried covers both Basic KYC and Enhanced KYC sync.
+func TestKYCVerifySyncIsNotRetried(t *testing.T) {
+	calls := map[string]func(c *Client) error{
+		"basic_kyc": func(c *Client) error {
+			_, err := c.BasicKYC.VerifySync(context.Background(), basicKYCParams())
+			return err
+		},
+		"enhanced_kyc": func(c *Client) error {
+			_, err := c.EnhancedKYC.VerifySync(context.Background(), enhancedKYCSyncParams())
+			return err
+		},
+	}
 	// The transport retries 408 and 500 for idempotent calls, so a second
 	// request here would mean VerifySync was marked idempotent.
-	for _, status := range []int{http.StatusRequestTimeout, http.StatusFailedDependency, http.StatusInternalServerError} {
-		t.Run(http.StatusText(status), func(t *testing.T) {
-			calls := 0
-			c := testClient(t, withJobID("job_not_retried", func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path == "/v3/token" {
-					serveToken(w)
-					return
-				}
-				calls++
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(status)
-				_, _ = w.Write([]byte(`{"status":"error","message":"The ID authority failed."}`))
-			}))
-			c.cfg.maxRetries = 2
+	for product, call := range calls {
+		for _, status := range []int{http.StatusRequestTimeout, http.StatusFailedDependency, http.StatusInternalServerError} {
+			t.Run(product+" "+http.StatusText(status), func(t *testing.T) {
+				requests := 0
+				c := testClient(t, withJobID("job_not_retried", func(w http.ResponseWriter, r *http.Request) {
+					if r.URL.Path == "/v3/token" {
+						serveToken(w)
+						return
+					}
+					requests++
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(status)
+					_, _ = w.Write([]byte(`{"status":"error","message":"The ID authority failed."}`))
+				}))
+				c.cfg.maxRetries = 2
 
-			_, err := c.BasicKYC.VerifySync(context.Background(), basicKYCParams())
-			var base *Error
-			var apiErr *APIError
-			switch {
-			case errors.As(err, &apiErr):
-				base = apiErr.smileIDError
-			case errors.As(err, &base):
-			default:
-				t.Fatalf("err = %T %v, want an HTTP error", err, err)
-			}
-			if base.StatusCode != status || base.JobID != "job_not_retried" {
-				t.Errorf("StatusCode = %d, JobID = %q", base.StatusCode, base.JobID)
-			}
-			if calls != 1 {
-				t.Errorf("calls = %d, want 1 (a retry would bill a second lookup)", calls)
-			}
-		})
+				err := call(c)
+				var base *Error
+				var apiErr *APIError
+				switch {
+				case errors.As(err, &apiErr):
+					base = apiErr.smileIDError
+				case errors.As(err, &base):
+				default:
+					t.Fatalf("err = %T %v, want an HTTP error", err, err)
+				}
+				if base.StatusCode != status || base.JobID != "job_not_retried" {
+					t.Errorf("StatusCode = %d, JobID = %q", base.StatusCode, base.JobID)
+				}
+				if requests != 1 {
+					t.Errorf("requests = %d, want 1 (a retry would bill a second lookup)", requests)
+				}
+			})
+		}
 	}
 }
 
