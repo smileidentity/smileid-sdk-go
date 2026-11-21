@@ -9,7 +9,7 @@ type Client struct {
 	cfg       config
 	transport *transport
 
-	// EnhancedKYC covers POST /v3/enhanced_kyc.
+	// EnhancedKYC covers POST /v3/enhanced_kyc and POST /v3/enhanced_kyc/sync.
 	EnhancedKYC *EnhancedKYCResource
 	// BasicKYC covers POST /v3/basic_kyc and POST /v3/basic_kyc/sync.
 	BasicKYC *BasicKYCResource

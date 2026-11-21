@@ -4,7 +4,10 @@
 // re-exports them as type aliases so callers import a single package.
 package models
 
-import "strings"
+import (
+	"encoding/json"
+	"strings"
+)
 
 // Consent captures the user's consent. Serialized as a JSON multipart part
 // named "consent".
@@ -256,6 +259,52 @@ type BasicKYCResult struct {
 	// POST /v3/basic_kyc/sync. It is not part of the body, so it is empty on
 	// a callback payload.
 	JobID string `json:"-"`
+}
+
+// EnhancedKYCResult is the terminal Enhanced KYC result: the 200 body of
+// POST /v3/enhanced_kyc/sync, which is the payload the callback delivers for
+// POST /v3/enhanced_kyc. Status is "clear", "attention", "block" or "error".
+// Reason is nil for a clear outcome. The spec leaves the body open, so Raw
+// keeps every body field, including the ID authority's data that has no
+// typed field here.
+type EnhancedKYCResult struct {
+	// JobID is the SmileID-Job-ID response header of
+	// POST /v3/enhanced_kyc/sync, or the body's job_id when the header is
+	// absent or blank.
+	JobID string `json:"job_id"`
+	// UserID is the User-ID response header of POST /v3/enhanced_kyc/sync,
+	// or the body's user_id when the header is absent or blank.
+	UserID     string  `json:"user_id"`
+	Status     string  `json:"status"`
+	Message    string  `json:"message"`
+	Reason     *string `json:"reason"`
+	KYCReceipt *string `json:"kyc_receipt"`
+	// ResponseSignature and ResponseTimestamp are the Response-Signature and
+	// Response-Timestamp headers of POST /v3/enhanced_kyc/sync, for checking
+	// with your own webhook verification code. They are not part of the
+	// body, so they are empty on a callback payload, and empty when the
+	// response has no such header.
+	ResponseSignature string `json:"-"`
+	ResponseTimestamp string `json:"-"`
+	// Raw is the whole decoded body, keyed by field name. It holds the
+	// fields above too, as they appear in the body.
+	Raw map[string]interface{} `json:"-"`
+}
+
+// UnmarshalJSON decodes the typed fields and keeps the whole body in Raw.
+func (r *EnhancedKYCResult) UnmarshalJSON(b []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	type plain EnhancedKYCResult
+	var p plain
+	if err := json.Unmarshal(b, &p); err != nil {
+		return err
+	}
+	p.Raw = raw
+	*r = EnhancedKYCResult(p)
+	return nil
 }
 
 // AMLMonitoringNewsMeta is the paging block of an AMLMonitoringNewsResponse.

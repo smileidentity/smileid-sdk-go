@@ -31,6 +31,37 @@ func (r *EnhancedKYCResource) Verify(ctx context.Context, params EnhancedKYCPara
 	return &out, nil
 }
 
+// VerifySync submits an enhanced KYC verification and returns the terminal
+// result inline (POST /v3/enhanced_kyc/sync). The endpoint ignores
+// callback_url, so the client's default callback URL is never sent; a callback
+// URL set on the call is sent but never receives a webhook. The result's JobID
+// comes from the SmileID-Job-ID response header, or from the body's job_id
+// when the header is absent. A verification that could not be completed
+// returns an error (408, 424 or 500). The job may still have run, and
+// resubmitting runs and bills a second lookup, so don't resubmit
+// automatically: read the outcome with Verifications.Retrieve using the
+// error's JobID. A 500 with no JobID means the job was not created.
+func (r *EnhancedKYCResource) VerifySync(ctx context.Context, params EnhancedKYCParams, opts ...RequestOption) (*EnhancedKYCResult, error) {
+	ro := resolveOptions(opts)
+	if err := validateUserDetails(params.UserDetails); err != nil {
+		return nil, err
+	}
+	cb, err := resolveExplicitCallback(params.CallbackURL, ro)
+	if err != nil {
+		return nil, err
+	}
+	params.CallbackURL = cb
+
+	ctx, cancel := r.c.withTimeout(ctx, ro)
+	defer cancel()
+
+	var out EnhancedKYCResult
+	if err := operations.EnhancedKYCSync(ctx, r.c.transport, params, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 // BasicKYCResource covers Basic KYC verification, which reports a match
 // verdict per submitted field.
 type BasicKYCResource struct{ c *Client }
