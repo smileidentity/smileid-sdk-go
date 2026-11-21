@@ -144,9 +144,9 @@ if result.Reason != nil {
 }
 ```
 
-`result.JobID` is the Smile job ID, from the `SmileID-Job-ID` response header, or from the body's `job_id` when the header is absent. The sync endpoint ignores `callback_url`, so `VerifySync` never sends the client's default callback URL.
+`result.JobID` is the Smile job ID, from the `SmileID-Job-ID` response header, or from the body's `job_id` when the header is absent. `result.UserID` comes from the `User-ID` header or the body's `user_id` in the same way. `result.Raw` holds the whole response body, including the ID authority's data that has no typed field. The sync endpoint ignores `callback_url`, so `VerifySync` never sends the client's default callback URL.
 
-The response carries the same `Response-Signature` and `Response-Timestamp` headers as a webhook, in `result.Signature` and `result.Timestamp`. Verify them with the code you use to verify Smile ID webhooks. This SDK has no webhook signature helper.
+The result carries the response's `Response-Signature` and `Response-Timestamp` headers in `result.ResponseSignature` and `result.ResponseTimestamp`, so you can check them with your own webhook verification code. The SDK does not verify them.
 
 `VerifySync` is not retried. If the ID authority does not answer in time (408) or is unavailable (424), or the call fails after the job was created (500), the error's `JobID` names the recorded job. The job may still have run, and resubmitting runs and bills a second lookup, so don't resubmit. Read the outcome with `Verifications.Retrieve`, exactly as for Basic KYC sync below. A 500 with no `JobID` means the job wasn't created.
 

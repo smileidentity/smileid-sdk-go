@@ -189,8 +189,8 @@ func TestEnhancedKYC(t *testing.T) {
 		wantHeaders := map[string]*string{
 			"SmileID-Job-ID":     &out.JobID,
 			"User-ID":            &out.UserID,
-			"Response-Signature": &out.Signature,
-			"Response-Timestamp": &out.Timestamp,
+			"Response-Signature": &out.ResponseSignature,
+			"Response-Timestamp": &out.ResponseTimestamp,
 		}
 		if len(headers) != len(wantHeaders) {
 			t.Fatalf("response headers = %v", headers)

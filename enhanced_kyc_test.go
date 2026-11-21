@@ -16,7 +16,9 @@ const enhancedKYCSyncBody = `{
   "status": "attention",
   "reason": "medium_risk",
   "message": "Verification successful",
-  "kyc_receipt": "https://portal.usesmileid.com/api/v3/001/job_result_summary/job_01h8x9y2z3a4b5c6d7e8f9g0h1/generate_v3_pdf/live?token=REDACTED"
+  "kyc_receipt": "https://portal.usesmileid.com/api/v3/001/job_result_summary/job_01h8x9y2z3a4b5c6d7e8f9g0h1/generate_v3_pdf/live?token=REDACTED",
+  "created_at": "2026-03-10T12:00:00.000Z",
+  "partner_params": {"order_id": "ORD-12345"}
 }`
 
 // enhancedKYCSyncClearBody is the 200 body for the Clearwater persona.
@@ -99,8 +101,16 @@ func TestEnhancedKYCVerifySyncGoldenRequestAndResult(t *testing.T) {
 	if res.KYCReceipt == nil || !strings.HasPrefix(*res.KYCReceipt, "https://portal.usesmileid.com/") {
 		t.Errorf("kyc_receipt = %v", res.KYCReceipt)
 	}
-	if res.Signature != "c2lnbmF0dXJl" || res.Timestamp != "2026-03-10T12:00:04.000Z" {
-		t.Errorf("signature/timestamp = %q %q", res.Signature, res.Timestamp)
+	if res.ResponseSignature != "c2lnbmF0dXJl" || res.ResponseTimestamp != "2026-03-10T12:00:04.000Z" {
+		t.Errorf("signature/timestamp = %q %q", res.ResponseSignature, res.ResponseTimestamp)
+	}
+	// Fields with no typed field are kept in Raw, and Raw holds the body's
+	// own job_id, not the header's.
+	if res.Raw["created_at"] != "2026-03-10T12:00:00.000Z" || res.Raw["job_id"] != "job_body_01h8x9y2z3a4b5c6d7e8f9g0h1" {
+		t.Errorf("raw = %v", res.Raw)
+	}
+	if pp, ok := res.Raw["partner_params"].(map[string]interface{}); !ok || pp["order_id"] != "ORD-12345" {
+		t.Errorf("raw partner_params = %v", res.Raw["partner_params"])
 	}
 }
 
@@ -120,8 +130,57 @@ func TestEnhancedKYCVerifySyncFallsBackToBodyIDs(t *testing.T) {
 	if res.JobID != "job_clear_01" || res.UserID != "user_clear_01" {
 		t.Errorf("JobID/UserID = %q %q", res.JobID, res.UserID)
 	}
-	if res.Status != "clear" || res.Reason != nil || res.KYCReceipt != nil || res.Signature != "" || res.Timestamp != "" {
+	if res.Status != "clear" || res.Reason != nil || res.KYCReceipt != nil || res.ResponseSignature != "" || res.ResponseTimestamp != "" {
 		t.Errorf("result = %+v", res)
+	}
+	if len(res.Raw) != 6 || res.Raw["status"] != "clear" {
+		t.Errorf("raw = %v", res.Raw)
+	}
+}
+
+// TestEnhancedKYCVerifySyncBlankHeadersFallBackToBody checks that blank
+// SmileID-Job-ID and User-ID headers count as absent.
+func TestEnhancedKYCVerifySyncBlankHeadersFallBackToBody(t *testing.T) {
+	c := testClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v3/token" {
+			w.Header()["smileid-job-id"] = []string{" "}
+			w.Header()["user-id"] = []string{""}
+		}
+		captureHandler(&captured{}, http.StatusOK, enhancedKYCSyncClearBody)(w, r)
+	})
+
+	res, err := c.EnhancedKYC.VerifySync(context.Background(), enhancedKYCSyncParams())
+	if err != nil {
+		t.Fatalf("VerifySync: %v", err)
+	}
+	if res.JobID != "job_clear_01" || res.UserID != "user_clear_01" {
+		t.Errorf("JobID/UserID = %q %q", res.JobID, res.UserID)
+	}
+}
+
+// TestEnhancedKYCVerifySyncWithoutIDs checks that a body without job_id or
+// user_id and a response without the headers leave both IDs empty.
+func TestEnhancedKYCVerifySyncWithoutIDs(t *testing.T) {
+	c := testClient(t, captureHandler(&captured{}, http.StatusOK, `{"status":"clear","message":"Verification successful","reason":null}`))
+
+	res, err := c.EnhancedKYC.VerifySync(context.Background(), enhancedKYCSyncParams())
+	if err != nil {
+		t.Fatalf("VerifySync: %v", err)
+	}
+	if res.JobID != "" || res.UserID != "" || res.Status != "clear" {
+		t.Errorf("result = %+v", res)
+	}
+}
+
+// TestEnhancedKYCVerifySyncShapeMismatch checks that a body whose typed
+// fields have the wrong JSON type is an *UnexpectedResponseError.
+func TestEnhancedKYCVerifySyncShapeMismatch(t *testing.T) {
+	c := testClient(t, captureHandler(&captured{}, http.StatusOK, `{"status":5}`))
+
+	_, err := c.EnhancedKYC.VerifySync(context.Background(), enhancedKYCSyncParams())
+	var unexpected *UnexpectedResponseError
+	if !errors.As(err, &unexpected) {
+		t.Fatalf("err = %T %v, want *UnexpectedResponseError", err, err)
 	}
 }
 

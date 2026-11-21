@@ -337,11 +337,11 @@ func decodeJSONObject(status int, body []byte, requestID, jobID string, out inte
 }
 
 // copyResponseHeaders copies each response header an operation asks for into
-// its destination field on the decoded result. A header that is absent leaves
-// the field as it is.
+// its destination field on the decoded result. A header that is absent or
+// blank leaves the field as it is.
 func copyResponseHeaders(h http.Header, dst map[string]*string) {
 	for name, field := range dst {
-		if v := h.Get(name); v != "" {
+		if v := h.Get(name); strings.TrimSpace(v) != "" {
 			*field = v
 		}
 	}
