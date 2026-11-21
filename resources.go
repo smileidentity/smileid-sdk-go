@@ -61,10 +61,12 @@ func (r *BasicKYCResource) Verify(ctx context.Context, params BasicKYCParams, op
 // VerifySync submits a Basic KYC verification and returns the terminal result
 // inline (POST /v3/basic_kyc/sync). The endpoint ignores callback_url, so the
 // client's default callback URL is never sent; a callback URL set on the call
-// is sent but never receives a webhook. A verification that could not be
-// completed returns an error (408, 424 or 500). The job may still have run,
-// and resubmitting runs and bills a second lookup, so don't resubmit
-// automatically.
+// is sent but never receives a webhook. The result's JobID comes from the
+// SmileID-Job-ID response header. A verification that could not be completed
+// returns an error (408, 424 or 500). The job may still have run, and
+// resubmitting runs and bills a second lookup, so don't resubmit
+// automatically: read the outcome with Verifications.Retrieve using the
+// error's JobID. A 500 with no JobID means the job was not created.
 func (r *BasicKYCResource) VerifySync(ctx context.Context, params BasicKYCParams, opts ...RequestOption) (*BasicKYCResult, error) {
 	ro := resolveOptions(opts)
 	if err := validateUserDetails(params.UserDetails); err != nil {
@@ -434,7 +436,10 @@ func (r *AMLResource) Screen(ctx context.Context, params OneTimeAMLParams, opts 
 // ScreenSync submits a One-Time AML screening and returns the terminal result
 // inline (POST /v3/aml/sync). The callback URL is optional and never receives a
 // webhook. Set IdempotencyKey so a repeated submission returns the original
-// result instead of running a second, separately billed screening.
+// result instead of running a second, separately billed screening. The
+// result's JobID comes from the SmileID-Job-ID response header. A 408 is final
+// in error and is not billed, so resubmit. A 500 with a JobID on the error can
+// be read with Verifications.Retrieve.
 func (r *AMLResource) ScreenSync(ctx context.Context, params OneTimeAMLSyncParams, opts ...RequestOption) (*OneTimeAMLResult, error) {
 	ro := resolveOptions(opts)
 	if err := validateOneTimeAML(params.OneTimeAMLParams); err != nil {

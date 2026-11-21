@@ -89,6 +89,7 @@ func TestSuccessBodyNotJSONObjectIsUnexpectedResponseError(t *testing.T) {
 					return
 				}
 				w.Header().Set("X-Request-Id", "req-9")
+				w.Header().Set("SmileID-Job-ID", "job-9")
 				w.WriteHeader(http.StatusOK)
 				fmt.Fprint(w, tt.body)
 			})
@@ -106,6 +107,9 @@ func TestSuccessBodyNotJSONObjectIsUnexpectedResponseError(t *testing.T) {
 			}
 			if unexpected.RequestID != "req-9" {
 				t.Errorf("RequestID = %q", unexpected.RequestID)
+			}
+			if unexpected.JobID != "job-9" {
+				t.Errorf("JobID = %q", unexpected.JobID)
 			}
 		})
 	}
@@ -225,5 +229,28 @@ func TestBenignExplicitContentTypeAccepted(t *testing.T) {
 	parts := parseMultipart(t, cap.contentType, cap.body)
 	if got := onePart(t, parts, "selfie_image").contentType; got != "application/octet-stream" {
 		t.Errorf("selfie content type = %q", got)
+	}
+}
+
+func TestSuccessBodyShapeMismatchIsUnexpectedResponseError(t *testing.T) {
+	// A JSON object whose fields have the wrong types passes the object probe
+	// but fails to decode into the result.
+	const body = `{"status":5,"job_id":"job_x"}`
+	c := testClient(t, withJobID("job_shape", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v3/token" {
+			serveToken(w)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, body)
+	}))
+
+	_, err := c.Verifications.Retrieve(context.Background(), "job_x")
+	var unexpected *UnexpectedResponseError
+	if !errors.As(err, &unexpected) {
+		t.Fatalf("err = %T %v, want *UnexpectedResponseError", err, err)
+	}
+	if unexpected.StatusCode != http.StatusOK || unexpected.RawBody != body || unexpected.JobID != "job_shape" {
+		t.Errorf("StatusCode = %d, RawBody = %q, JobID = %q", unexpected.StatusCode, unexpected.RawBody, unexpected.JobID)
 	}
 }

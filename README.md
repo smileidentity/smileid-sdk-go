@@ -145,7 +145,25 @@ if result.MatchResults != nil {
 }
 ```
 
-`VerifySync` is not retried. If the ID authority is unavailable (424), does not answer in time (408) or fails (500), the call returns an error. The job may still have run, and resubmitting runs and bills a second lookup, so don't resubmit automatically. `MatchResults` is nil when the check produced no verdict. The sync endpoint ignores `callback_url`, so `VerifySync` never sends the client's default callback URL.
+`result.JobID` is the Smile job ID, from the `SmileID-Job-ID` response header. `MatchResults` is nil when the check produced no verdict. The sync endpoint ignores `callback_url`, so `VerifySync` never sends the client's default callback URL.
+
+`VerifySync` is not retried. If the ID authority does not answer in time (408) or is unavailable (424), the call returns an `*Error` whose `JobID` names the recorded job. The job may still have run, and resubmitting runs and bills a second lookup, so don't resubmit automatically. Read the outcome with `Verifications.Retrieve` instead:
+
+```go
+result, err := client.BasicKYC.VerifySync(ctx, params)
+var httpErr *usesmileid.Error
+var apiErr *usesmileid.APIError
+switch {
+case errors.As(err, &httpErr) && httpErr.JobID != "": // 408 or 424
+    status, err := client.Verifications.Retrieve(ctx, httpErr.JobID)
+    // ...
+case errors.As(err, &apiErr) && apiErr.JobID != "": // 500 after the job was created
+    status, err := client.Verifications.Retrieve(ctx, apiErr.JobID)
+    // ...
+}
+```
+
+A 500 (`*APIError`) with a `JobID` failed after the job was created, so handle it the same way. If it has no `JobID`, the job wasn't created.
 
 ### Document verification
 
@@ -332,8 +350,10 @@ result, err := client.AML.ScreenSync(ctx, usesmileid.OneTimeAMLSyncParams{
     OneTimeAMLParams: params,
     IdempotencyKey:   usesmileid.String("onboarding-8f14e45fceea167a"),
 })
-fmt.Println(result.Status, result.NoOfPersonsFound)
+fmt.Println(result.JobID, result.Status, result.NoOfPersonsFound)
 ```
+
+`result.JobID` is the Smile job ID, from the `SmileID-Job-ID` response header. If the screening provider does not answer in time (408), nothing is billed and the job is final in `error`, so the status endpoint will only ever return that error: resubmit rather than poll, with the same `IdempotencyKey`. With `IdempotencyKey` set, the SDK already resubmits a 408 or 500 up to `MaxRetries` times; without one, it never resubmits. If the screening fails (500) and the `*APIError` has a `JobID`, read the outcome with `Verifications.Retrieve`.
 
 AML Monitoring enrols the entity for ongoing monitoring. `FullName` is required unless `SearchExistingUser` is true, which in turn needs `UserID`. `MonitoringNews` reads the adverse-media articles for one person reference in the result.
 
@@ -416,7 +436,7 @@ The error types are:
 | `ValidationError` | client-side validation, before any request is sent |
 | `TimeoutError` | `WaitUntilComplete` exceeding its timeout |
 
-Every error exposes `StatusCode`, `Status`, `Message`, `Code`, `RequestID` and `RawBody`. `Code` is populated only on the services `{error, code}` responses.
+Every error exposes `StatusCode`, `Status`, `Message`, `Code`, `RequestID`, `JobID` and `RawBody`. `Code` is populated only on the services `{error, code}` responses. `JobID` comes from the `SmileID-Job-ID` response header and is empty when the response has none.
 
 ## Telemetry
 

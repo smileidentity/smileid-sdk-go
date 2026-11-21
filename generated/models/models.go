@@ -202,6 +202,10 @@ type OneTimeAMLResult struct {
 	Consent          map[string]interface{} `json:"consent"`
 	Antifraud        map[string]interface{} `json:"antifraud"`
 	DeviceSignals    map[string]interface{} `json:"device_signals"`
+	// JobID is the Smile job ID from the SmileID-Job-ID response header of
+	// POST /v3/aml/sync. It is not part of the body, so it is empty on a
+	// callback payload.
+	JobID string `json:"-"`
 }
 
 // BasicKYCMatchResults holds the verdict per submitted field. Each verdict is
@@ -248,6 +252,10 @@ type BasicKYCResult struct {
 	Antifraud        map[string]interface{}   `json:"antifraud"`
 	DeviceSignals    map[string]interface{}   `json:"device_signals"`
 	KYCReceipt       *string                  `json:"kyc_receipt"`
+	// JobID is the Smile job ID from the SmileID-Job-ID response header of
+	// POST /v3/basic_kyc/sync. It is not part of the body, so it is empty on
+	// a callback payload.
+	JobID string `json:"-"`
 }
 
 // AMLMonitoringNewsMeta is the paging block of an AMLMonitoringNewsResponse.

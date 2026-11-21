@@ -55,13 +55,14 @@ type Request struct {
 	Method               string
 	Path                 string
 	Query                url.Values
-	Headers              map[string]string // operation-specific header overrides
-	UserIDHeader         *string           // sent as the User-ID header when set
-	Authenticated        bool              // attach a bearer token
-	Product              string            // x-smile-token-product: the product claim the token must carry
-	Idempotent           bool              // eligible for automatic retries
-	NeedsPartnerIDHeader bool              // send SmileID-Partner-ID
-	NotFoundReturnsBody  bool              // decode a 404 body instead of raising
+	Headers              map[string]string  // operation-specific header overrides
+	UserIDHeader         *string            // sent as the User-ID header when set
+	Authenticated        bool               // attach a bearer token
+	Product              string             // x-smile-token-product: the product claim the token must carry
+	Idempotent           bool               // eligible for automatic retries
+	NeedsPartnerIDHeader bool               // send SmileID-Partner-ID
+	NotFoundReturnsBody  bool               // decode a 404 body instead of raising
+	ResponseHeaders      map[string]*string // on success, copy each named response header into its field of the result
 	BodyKind             BodyKind
 	Parts                []Part
 }
@@ -153,6 +154,7 @@ func BasicKYC(ctx context.Context, d Doer, p models.BasicKYCParams, out *models.
 // repeated submission would run and bill a second lookup.
 func BasicKYCSync(ctx context.Context, d Doer, p models.BasicKYCParams, out *models.BasicKYCResult) error {
 	r := &Request{Method: "POST", Path: "/v3/basic_kyc/sync", Authenticated: true, Product: "basic_kyc", BodyKind: BodyMultipart}
+	r.ResponseHeaders = map[string]*string{"SmileID-Job-ID": &out.JobID}
 	buildBasicKYCParts(r, p)
 	return d.Do(ctx, r, out)
 }
@@ -428,6 +430,7 @@ func OneTimeAML(ctx context.Context, d Doer, p models.OneTimeAMLParams, out *mod
 // header is sent when set, and makes the call safe to retry.
 func OneTimeAMLSync(ctx context.Context, d Doer, p models.OneTimeAMLSyncParams, out *models.OneTimeAMLResult) error {
 	r := &Request{Method: "POST", Path: "/v3/aml/sync", Authenticated: true, Product: "one_time_aml", BodyKind: BodyMultipart}
+	r.ResponseHeaders = map[string]*string{"SmileID-Job-ID": &out.JobID}
 	buildAMLParts(r, p.OneTimeAMLParams)
 	if p.IdempotencyKey != nil {
 		r.Headers = map[string]string{"SmileID-Idempotency-Key": *p.IdempotencyKey}

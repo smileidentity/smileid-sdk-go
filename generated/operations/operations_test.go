@@ -58,6 +58,9 @@ func describe(t *testing.T, r *Request) shape {
 	if len(r.Headers) != 0 {
 		t.Errorf("unexpected operation headers: %v", r.Headers)
 	}
+	if len(r.ResponseHeaders) != 0 {
+		t.Errorf("unexpected response headers: %v", r.ResponseHeaders)
+	}
 	for _, p := range r.Parts {
 		switch p.Kind {
 		case PartScalar:
@@ -97,6 +100,22 @@ func check(t *testing.T, rec *recorder, err error, wantOut interface{}, want sha
 	if got := describe(t, rec.req); !reflect.DeepEqual(got, want) {
 		t.Errorf("request mismatch\n got: %+v\nwant: %+v", got, want)
 	}
+}
+
+// takeJobIDHeader checks that a sync operation asks for exactly the
+// SmileID-Job-ID response header, returns the field it is copied into, and
+// clears ResponseHeaders so describe can check the rest of the request.
+func takeJobIDHeader(t *testing.T, r *Request) *string {
+	t.Helper()
+	if r == nil {
+		t.Fatal("operation did not call Do")
+	}
+	field, ok := r.ResponseHeaders["SmileID-Job-ID"]
+	if !ok || len(r.ResponseHeaders) != 1 {
+		t.Fatalf("response headers = %v, want only SmileID-Job-ID", r.ResponseHeaders)
+	}
+	r.ResponseHeaders = nil
+	return field
 }
 
 func str(s string) *string                { return &s }
@@ -178,7 +197,11 @@ func TestBasicKYC(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		rec, out := &recorder{}, &models.BasicKYCResult{}
 		err := BasicKYCSync(ctx, rec, p, out)
+		jobIDField := takeJobIDHeader(t, rec.req)
 		check(t, rec, err, out, shape{Method: "POST", Path: "/v3/basic_kyc/sync", Authenticated: true, BodyKind: BodyMultipart, Parts: parts})
+		if jobIDField != &out.JobID {
+			t.Error("SmileID-Job-ID must be copied into the result's JobID")
+		}
 		if rec.req.Product != "basic_kyc" || rec.req.Idempotent {
 			t.Errorf("product = %q, idempotent = %v", rec.req.Product, rec.req.Idempotent)
 		}
@@ -529,13 +552,20 @@ func TestOneTimeAMLSync(t *testing.T) {
 		if rec.out != out {
 			t.Error("out not passed to Do")
 		}
+		if takeJobIDHeader(t, rec.req) != &out.JobID {
+			t.Error("SmileID-Job-ID must be copied into the result's JobID")
+		}
 	})
 
 	t.Run("without idempotency key", func(t *testing.T) {
 		rec, out := &recorder{}, &models.OneTimeAMLResult{}
 		err := OneTimeAMLSync(ctx, rec, models.OneTimeAMLSyncParams{OneTimeAMLParams: params}, out)
+		jobIDField := takeJobIDHeader(t, rec.req)
 		want := shape{Method: "POST", Path: "/v3/aml/sync", Authenticated: true, BodyKind: BodyMultipart, Parts: parts}
 		check(t, rec, err, out, want)
+		if jobIDField != &out.JobID {
+			t.Error("SmileID-Job-ID must be copied into the result's JobID")
+		}
 	})
 }
 

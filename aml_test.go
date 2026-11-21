@@ -215,7 +215,7 @@ func TestAMLScreenSyncClearResult(t *testing.T) {
 		t.Error("idempotency header sent without a key")
 	}
 	assertScalar(t, parseMultipart(t, cap.contentType, cap.body), "callback_url", "https://example.com/stored")
-	if res.Status != "clear" || res.Reason != nil || res.KYCReceipt != nil || res.PartnerParams != nil || res.NoOfPersonsFound != 0 || len(res.People) != 0 {
+	if res.Status != "clear" || res.Reason != nil || res.KYCReceipt != nil || res.PartnerParams != nil || res.NoOfPersonsFound != 0 || len(res.People) != 0 || res.JobID != "" {
 		t.Errorf("result = %+v", res)
 	}
 	if res.UserProvidedInfo.GivenNames != nil {
@@ -250,6 +250,55 @@ func TestAMLScreenSyncRetriesWithIdempotencyKey(t *testing.T) {
 	}
 	if calls != 2 || res.Status != "clear" {
 		t.Errorf("calls = %d, status = %q", calls, res.Status)
+	}
+}
+
+func TestAMLScreenSyncReturnsJobIDFromHeader(t *testing.T) {
+	var cap captured
+	c := testClient(t, withJobID("job_aml_01", captureHandler(&cap, http.StatusOK, amlSyncBody)))
+
+	res, err := c.AML.ScreenSync(context.Background(), OneTimeAMLSyncParams{OneTimeAMLParams: oneTimeAMLParams()})
+	if err != nil {
+		t.Fatalf("ScreenSync: %v", err)
+	}
+	if res.JobID != "job_aml_01" || res.Status != "block" {
+		t.Errorf("JobID = %q, Status = %q", res.JobID, res.Status)
+	}
+}
+
+func TestAMLScreenSyncWithoutKeyIsNotRetried(t *testing.T) {
+	for _, status := range []int{http.StatusRequestTimeout, http.StatusInternalServerError} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			calls := 0
+			c := testClient(t, withJobID("job_aml_err", func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/v3/token" {
+					serveToken(w)
+					return
+				}
+				calls++
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(status)
+				_, _ = w.Write([]byte(`{"status":"error","message":"The screening provider failed."}`))
+			}))
+			c.cfg.maxRetries = 2
+
+			_, err := c.AML.ScreenSync(context.Background(), OneTimeAMLSyncParams{OneTimeAMLParams: oneTimeAMLParams()})
+			var base *Error
+			var apiErr *APIError
+			switch {
+			case errors.As(err, &apiErr):
+				base = apiErr.smileIDError
+			case errors.As(err, &base):
+			default:
+				t.Fatalf("err = %T %v, want an HTTP error", err, err)
+			}
+			if base.StatusCode != status || base.JobID != "job_aml_err" {
+				t.Errorf("StatusCode = %d, JobID = %q", base.StatusCode, base.JobID)
+			}
+			if calls != 1 {
+				t.Errorf("calls = %d, want 1", calls)
+			}
+		})
 	}
 }
 

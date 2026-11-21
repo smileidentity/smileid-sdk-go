@@ -178,7 +178,11 @@ func (t *transport) Do(ctx context.Context, req *operations.Request, out interfa
 			if out == nil {
 				return nil
 			}
-			return decodeJSONObject(resp.StatusCode, respBody, requestID(resp), out)
+			if err := decodeJSONObject(resp.StatusCode, respBody, requestID(resp), jobID(resp), out); err != nil {
+				return err
+			}
+			copyResponseHeaders(resp.Header, req.ResponseHeaders)
+			return nil
 		}
 
 		// Retry policy: idempotent operations only, on retryable statuses.
@@ -190,7 +194,7 @@ func (t *transport) Do(ctx context.Context, req *operations.Request, out interfa
 			continue
 		}
 
-		return parseError(resp.StatusCode, respBody, requestID(resp))
+		return parseError(resp.StatusCode, respBody, requestID(resp), jobID(resp))
 	}
 }
 
@@ -321,15 +325,26 @@ func connectionError(err error) error {
 // decodeJSONObject decodes a success (2xx) body into out. The body must be a
 // JSON object; anything else (HTML, an array, a bare string, null, an empty
 // body, or a shape mismatch) returns an *UnexpectedResponseError.
-func decodeJSONObject(status int, body []byte, requestID string, out interface{}) error {
+func decodeJSONObject(status int, body []byte, requestID, jobID string, out interface{}) error {
 	var probe map[string]json.RawMessage
 	if json.Unmarshal(body, &probe) != nil || probe == nil {
-		return unexpectedResponseError(status, body, requestID)
+		return unexpectedResponseError(status, body, requestID, jobID)
 	}
 	if err := json.Unmarshal(body, out); err != nil {
-		return unexpectedResponseError(status, body, requestID)
+		return unexpectedResponseError(status, body, requestID, jobID)
 	}
 	return nil
+}
+
+// copyResponseHeaders copies each response header an operation asks for into
+// its destination field on the decoded result. A header that is absent leaves
+// the field as it is.
+func copyResponseHeaders(h http.Header, dst map[string]*string) {
+	for name, field := range dst {
+		if v := h.Get(name); v != "" {
+			*field = v
+		}
+	}
 }
 
 func isRetryableStatus(status int) bool {
@@ -393,6 +408,16 @@ func sleepBackoff(ctx context.Context, attempt int, retryAfter time.Duration) er
 	case <-timer.C:
 		return nil
 	}
+}
+
+// jobIDHeader carries the Smile job ID on the sync endpoints' responses,
+// including their 408, 424 and 500 errors.
+const jobIDHeader = "SmileID-Job-ID"
+
+// jobID returns the SmileID-Job-ID response header, matched without regard
+// to case, or empty when it is absent.
+func jobID(resp *http.Response) string {
+	return resp.Header.Get(jobIDHeader)
 }
 
 func requestID(resp *http.Response) string {
