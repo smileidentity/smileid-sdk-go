@@ -1,0 +1,126 @@
+{
+  "spec_tag": "v3.1215.0",
+  "operations": {
+    "createSmileLink": {"unsupported": "Planned for 13.3.0."},
+    "getAmlMonitoringNews": {
+      "method": "Client.AML.MonitoringNews",
+      "path": "GET /v3/aml/monitoring/{job_id}/news/{reference}"
+    },
+    "getBankCodes": {
+      "method": "Client.Services.BankCodes",
+      "path": "GET /v3/services/bank_codes"
+    },
+    "getIdStatus": {
+      "method": "Client.Services.IDStatus",
+      "path": "GET /v3/services/id_status"
+    },
+    "getSmileLink": {"unsupported": "Planned for 13.3.0."},
+    "getSupportedDocuments": {
+      "method": "Client.Services.SupportedDocuments",
+      "path": "GET /v3/services/supported_documents"
+    },
+    "getSupportedIdTypes": {
+      "method": "Client.Services.SupportedIDTypes",
+      "path": "GET /v3/services/supported_id_types"
+    },
+    "getV3Token": {
+      "method": "transport.mintToken",
+      "path": "POST /v3/token"
+    },
+    "getVerificationStatus": {
+      "method": "Client.Verifications.Retrieve",
+      "path": "GET /v3/status/{jobId}",
+      "response_headers": {
+        "api_version": {"unsupported": "The SDK doesn't read the api_version header, and JobStatus has no field for it."},
+        "job_id": {"unsupported": "The SDK doesn't read the job_id header. JobStatus.JobID holds the body's job_id instead."},
+        "user_id": {"unsupported": "The SDK doesn't read the user_id header. JobStatus.UserID holds the body's user_id instead."}
+      }
+    },
+    "listSmileLinks": {"unsupported": "Planned for 13.3.0."},
+    "replayCallback": {
+      "method": "Client.Verifications.Replay",
+      "path": "POST /v3/replay/{job_id}"
+    },
+    "reportUserFraud": {
+      "method": "Client.Users.ReportFraud",
+      "path": "POST /v3/users/{user_id}/report_fraud"
+    },
+    "submitAmlMonitoring": {
+      "method": "Client.AML.Monitor",
+      "path": "POST /v3/aml/monitoring"
+    },
+    "submitBasicKyc": {
+      "method": "Client.BasicKYC.Verify",
+      "path": "POST /v3/basic_kyc"
+    },
+    "submitBasicKycSync": {
+      "method": "Client.BasicKYC.VerifySync",
+      "path": "POST /v3/basic_kyc/sync",
+      "response_headers": {
+        "Response-Signature": {"unsupported": "The SDK doesn't read the Response-Signature header for Basic KYC sync, and BasicKYCResult has no field for it."},
+        "Response-Timestamp": {"unsupported": "The SDK doesn't read the Response-Timestamp header for Basic KYC sync, and BasicKYCResult has no field for it."},
+        "SmileID-Job-ID": "BasicKYCResult.JobID; Error.JobID on 408, 424 and 500 (*Error for 408 and 424, *APIError for 500)",
+        "User-ID": {"unsupported": "The SDK doesn't read the User-ID header for Basic KYC sync, and BasicKYCResult has no user ID field."}
+      }
+    },
+    "submitEnhancedKyc": {
+      "method": "Client.EnhancedKYC.Verify",
+      "path": "POST /v3/enhanced_kyc"
+    },
+    "submitEnhancedKycSync": {
+      "method": "Client.EnhancedKYC.VerifySync",
+      "path": "POST /v3/enhanced_kyc/sync",
+      "response_headers": {
+        "Response-Signature": "EnhancedKYCResult.ResponseSignature",
+        "Response-Timestamp": "EnhancedKYCResult.ResponseTimestamp",
+        "SmileID-Job-ID": "EnhancedKYCResult.JobID; Error.JobID on 408, 424 and 500 (*Error for 408 and 424, *APIError for 500)",
+        "User-ID": "EnhancedKYCResult.UserID"
+      }
+    },
+    "submitOneTimeAml": {
+      "method": "Client.AML.Screen",
+      "path": "POST /v3/aml"
+    },
+    "submitOneTimeAmlSync": {
+      "method": "Client.AML.ScreenSync",
+      "path": "POST /v3/aml/sync",
+      "response_headers": {
+        "Response-Signature": {"unsupported": "The SDK doesn't read the Response-Signature header for One-Time AML sync, and OneTimeAMLResult has no field for it."},
+        "Response-Timestamp": {"unsupported": "The SDK doesn't read the Response-Timestamp header for One-Time AML sync, and OneTimeAMLResult has no field for it."},
+        "SmileID-Job-ID": "OneTimeAMLResult.JobID; Error.JobID on 408 and 500 (*Error for 408, *APIError for 500)",
+        "User-ID": {"unsupported": "The SDK doesn't read the User-ID header for One-Time AML sync, and OneTimeAMLResult has no user ID field."}
+      }
+    },
+    "updateSmileLink": {"unsupported": "Planned for 13.3.0."},
+    "v3AddressVerification": {"unsupported": "Planned for 13.3.0."},
+    "v3BiometricAuthentication": {
+      "method": "Client.Biometric.Authenticate",
+      "path": "POST /v3/authentication"
+    },
+    "v3BiometricEnrollment": {
+      "method": "Client.Biometric.Enroll",
+      "path": "POST /v3/registration"
+    },
+    "v3BiometricKycEntry": {
+      "method": "Client.BiometricKYC.Verify",
+      "path": "POST /v3/biometric_kyc"
+    },
+    "v3DocumentVerificationEntry": {
+      "method": "Client.Documents.Verify",
+      "path": "POST /v3/document_verification"
+    },
+    "v3EnhancedDocumentVerificationEntry": {
+      "method": "Client.Documents.VerifyEnhanced",
+      "path": "POST /v3/enhanced_document_verification"
+    },
+    "v3PhoneVerification": {"unsupported": "Planned for 13.3.0."},
+    "v3ResidencyDocumentVerificationEntry": {
+      "method": "Client.Documents.VerifyResidency",
+      "path": "POST /v3/residency_document_verification"
+    },
+    "v3SmartSelfieCompare": {
+      "method": "Client.Biometric.Compare",
+      "path": "POST /v3/compare"
+    }
+  }
+}
