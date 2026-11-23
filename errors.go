@@ -21,6 +21,11 @@ type smileIDError struct {
 	Code string
 	// RequestID is populated from a response header when one is present.
 	RequestID string
+	// JobID is the Smile job ID from the SmileID-Job-ID response header, or
+	// empty when the response did not carry one. A sync verification that
+	// fails with a job ID was recorded: read its outcome with
+	// Verifications.Retrieve rather than resubmitting.
+	JobID string
 	// RawBody is the unparsed response body.
 	RawBody string
 }
@@ -84,16 +89,17 @@ func (e *ConnectionError) Unwrap() error { return e.Err }
 
 // UnexpectedResponseError is raised when a success (2xx) response carries a
 // body that is not a JSON object, for example an HTML error page from an
-// intermediary. StatusCode, RawBody and RequestID are populated.
+// intermediary. StatusCode, RawBody, RequestID and JobID are populated.
 type UnexpectedResponseError struct{ *smileIDError }
 
 // unexpectedResponseError builds an UnexpectedResponseError for a malformed
 // success body.
-func unexpectedResponseError(status int, body []byte, requestID string) error {
+func unexpectedResponseError(status int, body []byte, requestID, jobID string) error {
 	return &UnexpectedResponseError{&smileIDError{
 		StatusCode: status,
 		Message:    "response body is not a JSON object",
 		RequestID:  requestID,
+		JobID:      jobID,
 		RawBody:    string(body),
 	}}
 }
@@ -114,8 +120,9 @@ func validationErrorf(format string, args ...interface{}) error {
 // parseError turns a non-2xx HTTP response into the correct typed error. The
 // class is selected by HTTP status; the message is read from the body's
 // "message" then "error" field, and "code"/"status" are read when present.
-func parseError(status int, body []byte, requestID string) error {
-	base := &smileIDError{StatusCode: status, RequestID: requestID, RawBody: string(body)}
+// jobID is the SmileID-Job-ID response header, or empty.
+func parseError(status int, body []byte, requestID, jobID string) error {
+	base := &smileIDError{StatusCode: status, RequestID: requestID, JobID: jobID, RawBody: string(body)}
 
 	if len(body) > 0 {
 		var parsed struct {
