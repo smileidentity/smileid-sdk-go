@@ -9,6 +9,12 @@ The API surface (endpoints, request and response shapes) comes from `specs/v3/op
 - Ignore anything marked `x-smile-sdk-exclude: true` or `x-internal: true`. These are server-to-server details, such as the HMAC signature headers, that the SDKs leave out on purpose. The SDK doesn't sign requests. It authenticates every call with the spec's `SmileIDToken` scheme: it gets a token from `POST /v3/token` and sends it in the `SmileID-Token` header, in `transport.go`. Keep that code when you ignore the excluded headers.
 - Don't add endpoints or fields that aren't in the spec. Internal endpoints are kept out of it on purpose.
 
+## Spec coverage
+
+`spec-coverage.json` accounts for every public operation in the spec at its `spec_tag`. Each one maps to the method that calls it, such as `Client.BasicKYC.VerifySync`, and each response header to the result or error field a caller reads it from. Anything the SDK doesn't do is marked `unsupported` with a reason. The `spec-coverage` workflow checks the file against the spec, and `spec_coverage_test.go` checks it against the code: every method must exist, and the supported paths must be exactly the paths in `generated/operations/` plus the token request.
+
+A change that adds, removes or stops supporting an operation, or starts or stops exposing a response header, must update `spec-coverage.json` in the same pull request.
+
 ## Layout
 
 - `generated/models/` holds wire request and response models, and `generated/operations/` holds one thin function per operation, mapping typed parameters to transport requests. Both are hand-written for now, because there is no generator yet. Edit it by hand, but keep it shaped like generator output: wire models and one thin function per operation, with no business logic. A generator will replace it later.
