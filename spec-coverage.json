@@ -31,9 +31,9 @@
       "method": "Client.Verifications.Retrieve",
       "path": "GET /v3/status/{jobId}",
       "response_headers": {
-        "api_version": {"unsupported": "The SDK doesn't read the api_version header, and JobStatus has no field for it."},
-        "job_id": {"unsupported": "The SDK doesn't read the job_id header. JobStatus.JobID holds the body's job_id instead."},
-        "user_id": {"unsupported": "The SDK doesn't read the user_id header. JobStatus.UserID holds the body's user_id instead."}
+        "api_version": {"unsupported": "The SDK doesn't read the api_version header. It is lambda's deployed version, a diagnostic value the spec declares only on this operation.", "backfill": false},
+        "job_id": {"unsupported": "The SDK doesn't read the job_id header. JobStatus.JobID holds the body's job_id instead.", "backfill": false},
+        "user_id": {"unsupported": "The SDK doesn't read the user_id header. JobStatus.UserID holds the body's user_id instead.", "backfill": false}
       }
     },
     "listSmileLinks": {"unsupported": "Planned for 13.3.0."},
