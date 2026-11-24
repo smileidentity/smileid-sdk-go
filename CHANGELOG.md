@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [13.2.0] - 2026-11-24
+
 ### Added
 
 - Basic KYC operations, matching API spec v3.1215.0, on the new `client.BasicKYC` resource:
