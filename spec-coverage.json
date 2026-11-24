@@ -67,16 +67,7 @@
       "method": "Client.EnhancedKYC.Verify",
       "path": "POST /v3/enhanced_kyc"
     },
-    "submitEnhancedKycSync": {
-      "method": "Client.EnhancedKYC.VerifySync",
-      "path": "POST /v3/enhanced_kyc/sync",
-      "response_headers": {
-        "Response-Signature": "EnhancedKYCResult.ResponseSignature",
-        "Response-Timestamp": "EnhancedKYCResult.ResponseTimestamp",
-        "SmileID-Job-ID": "EnhancedKYCResult.JobID; Error.JobID on 408, 424 and 500 (*Error for 408 and 424, *APIError for 500)",
-        "User-ID": "EnhancedKYCResult.UserID"
-      }
-    },
+    "submitEnhancedKycSync": {"unsupported": "Added by the Enhanced KYC sync pull request, #51."},
     "submitOneTimeAml": {
       "method": "Client.AML.Screen",
       "path": "POST /v3/aml"

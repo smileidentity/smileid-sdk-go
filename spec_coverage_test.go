@@ -151,9 +151,6 @@ var operationCalls = map[string]func(context.Context, operations.Doer) error{
 	"EnhancedKYC": func(ctx context.Context, d operations.Doer) error {
 		return operations.EnhancedKYC(ctx, d, EnhancedKYCParams{}, &AcceptedResponse{})
 	},
-	"EnhancedKYCSync": func(ctx context.Context, d operations.Doer) error {
-		return operations.EnhancedKYCSync(ctx, d, EnhancedKYCParams{}, &EnhancedKYCResult{})
-	},
 	"BasicKYC": func(ctx context.Context, d operations.Doer) error {
 		return operations.BasicKYC(ctx, d, BasicKYCParams{}, &AcceptedResponse{})
 	},
