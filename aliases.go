@@ -35,6 +35,15 @@ type (
 	AMLMonitoringNewsResponse  = models.AMLMonitoringNewsResponse
 	AMLMonitoringNewsMeta      = models.AMLMonitoringNewsMeta
 	AMLMonitoringNewsItem      = models.AMLMonitoringNewsItem
+	SmileLinkIDType            = models.SmileLinkIDType
+	SmileLinkCreated           = models.SmileLinkCreated
+	SmileLinkConsent           = models.SmileLinkConsent
+	SmileLinkTokenValues       = models.SmileLinkTokenValues
+	SmileLink                  = models.SmileLink
+	SmileLinkJobStats          = models.SmileLinkJobStats
+	SmileLinkListItem          = models.SmileLinkListItem
+	SmileLinkListMeta          = models.SmileLinkListMeta
+	SmileLinkListResponse      = models.SmileLinkListResponse
 
 	EnhancedKYCParams                   = models.EnhancedKYCParams
 	BasicKYCParams                      = models.BasicKYCParams
@@ -56,6 +65,11 @@ type (
 	OneTimeAMLSyncParams                = models.OneTimeAMLSyncParams
 	AMLMonitoringParams                 = models.AMLMonitoringParams
 	AMLMonitoringNewsParams             = models.AMLMonitoringNewsParams
+	PhoneVerificationParams             = models.PhoneVerificationParams
+	AddressVerificationParams           = models.AddressVerificationParams
+	CreateSmileLinkParams               = models.CreateSmileLinkParams
+	UpdateSmileLinkParams               = models.UpdateSmileLinkParams
+	ListSmileLinksParams                = models.ListSmileLinksParams
 )
 
 // Binary input constructors, re-exported from the generated package.

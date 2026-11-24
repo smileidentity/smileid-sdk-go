@@ -257,3 +257,129 @@ func validateAMLMonitoringNews(jobID, reference string, p AMLMonitoringNewsParam
 	}
 	return nil
 }
+
+var (
+	e164Pattern        = regexp.MustCompile(`^\+[1-9]\d{6,14}$`)
+	countryCodePattern = regexp.MustCompile(`^[A-Z]{2}$`)
+	phoneOperators     = []string{"MTN", "VODAFONE", "AIRTELTIGO"}
+	utilityTypes       = []string{"PrePaid", "PostPaid"}
+	addressCountries   = []string{"NG", "ZA"}
+)
+
+func validatePhoneVerification(p PhoneVerificationParams) error {
+	if !countryCodePattern.MatchString(p.Country) {
+		return validationErrorf("country must be a two-letter uppercase ISO 3166-1 alpha-2 code")
+	}
+	if !e164Pattern.MatchString(p.PhoneNumber) {
+		return validationErrorf("phone_number must be in E.164 format, for example +233201234567")
+	}
+	if p.Operator != nil && !slices.Contains(phoneOperators, *p.Operator) {
+		return validationErrorf("operator must be one of %s", strings.Join(phoneOperators, ", "))
+	}
+	if p.Country == "GH" && p.Operator == nil {
+		return validationErrorf("operator is required for Ghana")
+	}
+	if p.IDNumber != nil && strings.TrimSpace(*p.IDNumber) == "" {
+		return validationErrorf("id_number must not be empty")
+	}
+	if p.Country == "KE" && p.IDNumber == nil {
+		return validationErrorf("id_number is required for Kenya")
+	}
+	return validateUserDetails(p.UserDetails)
+}
+
+func validateAddressVerification(p AddressVerificationParams) error {
+	if strings.TrimSpace(p.Address) == "" || len(p.Address) > 512 {
+		return validationErrorf("address is required and must be at most 512 characters")
+	}
+	if !slices.Contains(addressCountries, p.Country) {
+		return validationErrorf("country must be one of %s", strings.Join(addressCountries, ", "))
+	}
+	idSet := p.IDNumber != nil && strings.TrimSpace(*p.IDNumber) != ""
+	utilitySet := p.UtilityNumber != nil && strings.TrimSpace(*p.UtilityNumber) != ""
+	if !idSet && !utilitySet {
+		return validationErrorf("id_number or utility_number is required")
+	}
+	if p.UtilityType != nil && !slices.Contains(utilityTypes, *p.UtilityType) {
+		return validationErrorf("utility_type must be one of %s", strings.Join(utilityTypes, ", "))
+	}
+	if p.Country == "ZA" && !idSet {
+		return validationErrorf("id_number is required for South Africa")
+	}
+	if p.Country == "NG" && (!utilitySet || p.UtilityProvider == nil || strings.TrimSpace(*p.UtilityProvider) == "" || p.UtilityType == nil) {
+		return validationErrorf("utility_number, utility_provider and utility_type are required for Nigeria")
+	}
+	return validateUserDetails(p.UserDetails)
+}
+
+func validateSmileLinkIDTypes(idTypes []SmileLinkIDType) error {
+	if len(idTypes) == 0 {
+		return validationErrorf("id_types must contain at least one entry")
+	}
+	for _, t := range idTypes {
+		if strings.TrimSpace(t.Country) == "" || strings.TrimSpace(t.IDType) == "" || strings.TrimSpace(t.VerificationMethod) == "" {
+			return validationErrorf("each id_types entry needs country, id_type and verification_method")
+		}
+	}
+	return nil
+}
+
+func validateCreateSmileLink(p CreateSmileLinkParams) error {
+	if err := validateSmileLinkIDTypes(p.IDTypes); err != nil {
+		return err
+	}
+	if strings.TrimSpace(p.Name) == "" {
+		return validationErrorf("name is required")
+	}
+	if err := validateHTTPSURL("notice_privacy_policy_url", p.NoticePrivacyPolicyURL); err != nil {
+		return err
+	}
+	if p.CompanyName != nil && len(*p.CompanyName) > 255 {
+		return validationErrorf("company_name must be at most 255 characters")
+	}
+	if p.ThemeColor != nil && len(*p.ThemeColor) > 32 {
+		return validationErrorf("theme_color must be at most 32 characters")
+	}
+	if p.ExpiresAt != nil {
+		if _, err := time.Parse(time.RFC3339, *p.ExpiresAt); err != nil {
+			return validationErrorf("expires_at must be an RFC 3339 date-time")
+		}
+	}
+	for name, v := range map[string]*string{"logo_url": p.LogoURL, "redirect_url": p.RedirectURL} {
+		if v != nil {
+			if err := validateHTTPSURL(name, *v); err != nil {
+				return err
+			}
+		}
+	}
+	if p.UserID != nil && (*p.UserID == "" || *p.UserID != strings.TrimSpace(*p.UserID)) {
+		return validationErrorf("user_id must not be empty or padded with whitespace")
+	}
+	return nil
+}
+
+func validateListSmileLinks(p ListSmileLinksParams) error {
+	if p.Limit != nil && (*p.Limit < 1 || *p.Limit > 100) {
+		return validationErrorf("limit must be between 1 and 100")
+	}
+	if p.Page != nil && *p.Page < 1 {
+		return validationErrorf("page must be at least 1")
+	}
+	return nil
+}
+
+func validateUpdateSmileLink(refID string, p UpdateSmileLinkParams) error {
+	if strings.TrimSpace(refID) == "" {
+		return validationErrorf("ref_id is required")
+	}
+	if p.IDTypes == nil && p.IsDisabled == nil {
+		return validationErrorf("id_types or is_disabled is required")
+	}
+	if p.IDTypes == nil {
+		return nil
+	}
+	if len(p.IDTypes) > 50 {
+		return validationErrorf("id_types must contain at most 50 entries")
+	}
+	return validateSmileLinkIDTypes(p.IDTypes)
+}

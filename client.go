@@ -4,7 +4,7 @@ import "net/http"
 
 // Client is the Smile ID V3 API client. Construct one with [NewClient] and
 // call operations through the resource namespaces (EnhancedKYC, BasicKYC, Documents,
-// BiometricKYC, Biometric, Verifications, Users, Services, AML).
+// BiometricKYC, Biometric, Verifications, Users, Services, AML, Phone, Address, SmileLinks).
 type Client struct {
 	cfg       config
 	transport *transport
@@ -27,6 +27,12 @@ type Client struct {
 	Services *ServicesResource
 	// AML covers One-Time AML screening and AML Monitoring.
 	AML *AMLResource
+	// Phone covers POST /v3/phone.
+	Phone *PhoneResource
+	// Address covers POST /v3/address.
+	Address *AddressResource
+	// SmileLinks covers creating, listing, reading and updating Smile Links.
+	SmileLinks *SmileLinksResource
 }
 
 // NewClient validates the configuration and returns a ready client. It returns
@@ -52,5 +58,8 @@ func NewClient(cfg Config) (*Client, error) {
 	c.Users = &UsersResource{c}
 	c.Services = &ServicesResource{c}
 	c.AML = &AMLResource{c}
+	c.Phone = &PhoneResource{c}
+	c.Address = &AddressResource{c}
+	c.SmileLinks = &SmileLinksResource{c}
 	return c, nil
 }

@@ -209,6 +209,14 @@ type OneTimeAMLResult struct {
 	// POST /v3/aml/sync. It is not part of the body, so it is empty on a
 	// callback payload.
 	JobID string `json:"-"`
+	// UserID, ResponseSignature and ResponseTimestamp are the User-ID,
+	// Response-Signature and Response-Timestamp headers of
+	// POST /v3/aml/sync, for checking with your own webhook verification
+	// code. They are not part of the body, so they are empty on a callback
+	// payload, and empty when the response has no such header.
+	UserID            string `json:"-"`
+	ResponseSignature string `json:"-"`
+	ResponseTimestamp string `json:"-"`
 }
 
 // BasicKYCMatchResults holds the verdict per submitted field. Each verdict is
@@ -259,6 +267,14 @@ type BasicKYCResult struct {
 	// POST /v3/basic_kyc/sync. It is not part of the body, so it is empty on
 	// a callback payload.
 	JobID string `json:"-"`
+	// UserID, ResponseSignature and ResponseTimestamp are the User-ID,
+	// Response-Signature and Response-Timestamp headers of
+	// POST /v3/basic_kyc/sync, for checking with your own webhook
+	// verification code. They are not part of the body, so they are empty on
+	// a callback payload, and empty when the response has no such header.
+	UserID            string `json:"-"`
+	ResponseSignature string `json:"-"`
+	ResponseTimestamp string `json:"-"`
 }
 
 // EnhancedKYCResult is the terminal Enhanced KYC result: the 200 body of
@@ -332,4 +348,98 @@ type AMLMonitoringNewsResponse struct {
 	UserID  string                  `json:"user_id"`
 	Meta    AMLMonitoringNewsMeta   `json:"meta"`
 	News    []AMLMonitoringNewsItem `json:"news"`
+}
+
+// SmileLinkIDType is one verification configuration offered by a Smile Link.
+// VerificationMethod is "biometric_kyc", "document_verification",
+// "enhanced_document_verification" or "enhanced_kyc". A link read back stores
+// document verification as "doc_verification".
+type SmileLinkIDType struct {
+	Country            string `json:"country"`
+	IDType             string `json:"id_type"`
+	VerificationMethod string `json:"verification_method"`
+}
+
+// SmileLinkCreated is the 201 body of POST /v3/smile_links. Read the full
+// link with GetSmileLink. UserID is nil when the link has none.
+type SmileLinkCreated struct {
+	Link    string  `json:"link"`
+	Message string  `json:"message"`
+	RefID   string  `json:"ref_id"`
+	UserID  *string `json:"user_id"`
+}
+
+// SmileLinkConsent is the consent held in a link's bound token values.
+type SmileLinkConsent struct {
+	Granted                bool   `json:"granted"`
+	GrantedAt              string `json:"granted_at"`
+	NoticeLanguage         string `json:"notice_language"`
+	NoticePrivacyPolicyURL string `json:"notice_privacy_policy_url"`
+}
+
+// SmileLinkTokenValues holds the values, held in the clear, of a link's
+// TokenProvidedFields. Fields the token did not bind are empty or nil.
+type SmileLinkTokenValues struct {
+	Country string            `json:"country,omitempty"`
+	IDType  string            `json:"id_type,omitempty"`
+	Consent *SmileLinkConsent `json:"consent,omitempty"`
+}
+
+// SmileLink is a Smile Link resource: the 200 body of GET and PUT
+// /v3/smile_links/{refId}, and the link part of each list item. Optional
+// fields the API leaves out are empty or nil. RedirectURL, ExpiresAt,
+// DisabledAt, PartnerParams and UserID are nil when the API returns null.
+type SmileLink struct {
+	RefID                  string                 `json:"ref_id"`
+	Link                   string                 `json:"link"`
+	Name                   string                 `json:"name"`
+	CompanyName            string                 `json:"company_name"`
+	Description            string                 `json:"description"`
+	IDTypes                []SmileLinkIDType      `json:"id_types"`
+	IsSingleUse            bool                   `json:"is_single_use"`
+	CallbackURL            string                 `json:"callback_url"`
+	NoticePrivacyPolicyURL string                 `json:"notice_privacy_policy_url"`
+	LogoURL                string                 `json:"logo_url"`
+	RedirectURL            *string                `json:"redirect_url"`
+	ThemeColor             string                 `json:"theme_color"`
+	ExpiresAt              *string                `json:"expires_at"`
+	DisabledAt             *string                `json:"disabled_at"`
+	PartnerParams          map[string]interface{} `json:"partner_params"`
+	UserID                 *string                `json:"user_id"`
+	TokenProvidedFields    []string               `json:"token_provided_fields"`
+	TokenProvidedValues    SmileLinkTokenValues   `json:"token_provided_values"`
+	CreatedAt              string                 `json:"created_at"`
+	UpdatedAt              string                 `json:"updated_at"`
+}
+
+// SmileLinkJobStats counts the outcomes of the jobs run through a link.
+type SmileLinkJobStats struct {
+	Clear          int `json:"clear"`
+	Block          int `json:"block"`
+	Attention      int `json:"attention"`
+	Error          int `json:"error"`
+	SuccessfulJobs int `json:"successful_jobs"`
+	FailedJobs     int `json:"failed_jobs"`
+	TotalJobs      int `json:"total_jobs"`
+}
+
+// SmileLinkListItem is one entry of a Smile Link listing: the link and its
+// job outcome stats.
+type SmileLinkListItem struct {
+	SmileLink
+	SmileLinkJobStats
+}
+
+// SmileLinkListMeta is the paging block of a SmileLinkListResponse.
+type SmileLinkListMeta struct {
+	CurrentPage int `json:"current_page"`
+	Limit       int `json:"limit"`
+	TotalCount  int `json:"total_count"`
+	TotalPages  int `json:"total_pages"`
+}
+
+// SmileLinkListResponse is the 200 body of GET /v3/smile_links.
+type SmileLinkListResponse struct {
+	Links []SmileLinkListItem `json:"links"`
+	Meta  SmileLinkListMeta   `json:"meta"`
 }

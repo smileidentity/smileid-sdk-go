@@ -2,6 +2,7 @@ package usesmileid
 
 import (
 	"context"
+	"strings"
 
 	"github.com/smileidentity/smileid-sdk-go/v13/generated/operations"
 )
@@ -531,6 +532,146 @@ func (r *AMLResource) MonitoringNews(ctx context.Context, jobID, reference strin
 
 	var out AMLMonitoringNewsResponse
 	if err := operations.AMLMonitoringNews(ctx, r.c.transport, jobID, reference, params, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// PhoneResource covers phone number verification.
+type PhoneResource struct{ c *Client }
+
+// Verify submits a phone number verification (POST /v3/phone). The result is
+// delivered to the callback URL. Operator is required for Ghana and IDNumber
+// for Kenya.
+func (r *PhoneResource) Verify(ctx context.Context, params PhoneVerificationParams, opts ...RequestOption) (*AcceptedResponse, error) {
+	ro := resolveOptions(opts)
+	if err := validatePhoneVerification(params); err != nil {
+		return nil, err
+	}
+	cb, err := r.c.resolveCallback(params.CallbackURL, ro)
+	if err != nil {
+		return nil, err
+	}
+	params.CallbackURL = cb
+
+	ctx, cancel := r.c.withTimeout(ctx, ro)
+	defer cancel()
+
+	var out AcceptedResponse
+	if err := operations.PhoneVerification(ctx, r.c.transport, params, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// AddressResource covers address verification.
+type AddressResource struct{ c *Client }
+
+// Verify submits an address verification (POST /v3/address). The result is
+// delivered to the callback URL. Nigeria requires UtilityNumber,
+// UtilityProvider and UtilityType, and South Africa requires IDNumber.
+func (r *AddressResource) Verify(ctx context.Context, params AddressVerificationParams, opts ...RequestOption) (*AcceptedResponse, error) {
+	ro := resolveOptions(opts)
+	if err := validateAddressVerification(params); err != nil {
+		return nil, err
+	}
+	cb, err := r.c.resolveCallback(params.CallbackURL, ro)
+	if err != nil {
+		return nil, err
+	}
+	params.CallbackURL = cb
+
+	ctx, cancel := r.c.withTimeout(ctx, ro)
+	defer cancel()
+
+	var out AcceptedResponse
+	if err := operations.AddressVerification(ctx, r.c.transport, params, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// SmileLinksResource covers Smile Links, the hosted verification links you
+// hand to end users.
+type SmileLinksResource struct{ c *Client }
+
+// Create creates a Smile Link (POST /v3/smile_links). It returns the link's
+// URL and RefID; read the full link with Get. When CallbackURL is empty, the
+// client's default callback URL is sent, and with none the API falls back to
+// the partner's configured callback. A callback URL set with WithCallbackURL
+// replaces the one in the params. The call is not retried automatically.
+func (r *SmileLinksResource) Create(ctx context.Context, params CreateSmileLinkParams, opts ...RequestOption) (*SmileLinkCreated, error) {
+	ro := resolveOptions(opts)
+	if err := validateCreateSmileLink(params); err != nil {
+		return nil, err
+	}
+	cb, err := r.c.resolveCallback(params.CallbackURL, ro)
+	if err != nil {
+		return nil, err
+	}
+	params.CallbackURL = cb
+
+	ctx, cancel := r.c.withTimeout(ctx, ro)
+	defer cancel()
+
+	var out SmileLinkCreated
+	if err := operations.CreateSmileLink(ctx, r.c.transport, params, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// List lists the partner's Smile Links, newest first, each with its job
+// outcome stats (GET /v3/smile_links).
+func (r *SmileLinksResource) List(ctx context.Context, params ListSmileLinksParams, opts ...RequestOption) (*SmileLinkListResponse, error) {
+	ro := resolveOptions(opts)
+	if err := validateListSmileLinks(params); err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := r.c.withTimeout(ctx, ro)
+	defer cancel()
+
+	var out SmileLinkListResponse
+	if err := operations.ListSmileLinks(ctx, r.c.transport, params, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// Get fetches a Smile Link by the RefID returned when it was created
+// (GET /v3/smile_links/{refId}). An unknown link is a *NotFoundError.
+func (r *SmileLinksResource) Get(ctx context.Context, refID string, opts ...RequestOption) (*SmileLink, error) {
+	ro := resolveOptions(opts)
+	if strings.TrimSpace(refID) == "" {
+		return nil, validationErrorf("ref_id is required")
+	}
+
+	ctx, cancel := r.c.withTimeout(ctx, ro)
+	defer cancel()
+
+	var out SmileLink
+	if err := operations.GetSmileLink(ctx, r.c.transport, refID, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// Update changes a Smile Link's IDTypes and/or disables or re-enables it
+// (PUT /v3/smile_links/{refId}). Set at least one field. It returns the full,
+// updated link. The API rejects an IDTypes change to a single-use link that
+// has been used (409) and any change to an expired link (410).
+func (r *SmileLinksResource) Update(ctx context.Context, refID string, params UpdateSmileLinkParams, opts ...RequestOption) (*SmileLink, error) {
+	ro := resolveOptions(opts)
+	if err := validateUpdateSmileLink(refID, params); err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := r.c.withTimeout(ctx, ro)
+	defer cancel()
+
+	var out SmileLink
+	if err := operations.UpdateSmileLink(ctx, r.c.transport, refID, params, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

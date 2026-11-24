@@ -172,7 +172,7 @@ if result.MatchResults != nil {
 }
 ```
 
-`result.JobID` is the Smile job ID, from the `SmileID-Job-ID` response header. `MatchResults` is nil when the check produced no verdict. The sync endpoint ignores `callback_url`, so `VerifySync` never sends the client's default callback URL.
+`result.JobID` is the Smile job ID, from the `SmileID-Job-ID` response header. `result.UserID`, `result.ResponseSignature` and `result.ResponseTimestamp` hold the `User-ID`, `Response-Signature` and `Response-Timestamp` response headers, for checking with your own webhook verification code. The SDK does not verify them, and they are empty on a callback payload. `MatchResults` is nil when the check produced no verdict. The sync endpoint ignores `callback_url`, so `VerifySync` never sends the client's default callback URL.
 
 `VerifySync` is not retried. If the ID authority does not answer in time (408) or is unavailable (424), the call returns an `*Error` whose `JobID` names the recorded job. The job may still have run, and resubmitting runs and bills a second lookup, so don't resubmit automatically. Read the outcome with `Verifications.Retrieve` instead:
 
@@ -385,7 +385,7 @@ result, err := client.AML.ScreenSync(ctx, usesmileid.OneTimeAMLSyncParams{
 fmt.Println(result.JobID, result.Status, result.NoOfPersonsFound)
 ```
 
-`result.JobID` is the Smile job ID, from the `SmileID-Job-ID` response header. If the screening provider does not answer in time (408), nothing is billed and the job is final in `error`, so the status endpoint will only ever return that error: resubmit rather than poll, with the same `IdempotencyKey`. With `IdempotencyKey` set, the SDK already resubmits a 408 or 500 up to `MaxRetries` times; without one, it never resubmits. If the screening fails (500) and the `*APIError` has a `JobID`, read the outcome with `Verifications.Retrieve`.
+`result.JobID` is the Smile job ID, from the `SmileID-Job-ID` response header. `result.UserID`, `result.ResponseSignature` and `result.ResponseTimestamp` hold the `User-ID`, `Response-Signature` and `Response-Timestamp` response headers, for checking with your own webhook verification code. The SDK does not verify them. If the screening provider does not answer in time (408), nothing is billed and the job is final in `error`, so the status endpoint will only ever return that error: resubmit rather than poll, with the same `IdempotencyKey`. With `IdempotencyKey` set, the SDK already resubmits a 408 or 500 up to `MaxRetries` times; without one, it never resubmits. If the screening fails (500) and the `*APIError` has a `JobID`, read the outcome with `Verifications.Retrieve`.
 
 AML Monitoring enrols the entity for ongoing monitoring. `FullName` is required unless `SearchExistingUser` is true, which in turn needs `UserID`. `MonitoringNews` reads the adverse-media articles for one person reference in the result.
 
@@ -402,6 +402,68 @@ news, err := client.AML.MonitoringNews(ctx, "job_...", "ref_001", usesmileid.AML
     Page:         usesmileid.Ptr(1),
 })
 ```
+
+### Phone number verification
+
+`Phone.Verify` verifies a phone number and delivers the result to your callback URL. `Operator` is required for Ghana (`MTN`, `VODAFONE` or `AIRTELTIGO`) and `IDNumber` for Kenya.
+
+```go
+accepted, err := client.Phone.Verify(ctx, usesmileid.PhoneVerificationParams{
+    Country:     "GH",
+    PhoneNumber: "+233201234567",
+    Operator:    usesmileid.String("MTN"),
+    UserDetails: userDetails,
+    Consent:     consent,
+})
+```
+
+### Address verification
+
+`Address.Verify` checks an address against the records for an ID or utility account and delivers the result to your callback URL. Nigeria (`NG`) needs `UtilityNumber`, `UtilityProvider` and `UtilityType` (`PrePaid` or `PostPaid`). South Africa (`ZA`) needs `IDNumber`.
+
+```go
+accepted, err := client.Address.Verify(ctx, usesmileid.AddressVerificationParams{
+    Address:         "1 Marina Road, Lagos",
+    Country:         "NG",
+    UtilityNumber:   usesmileid.String("04123456789"),
+    UtilityProvider: usesmileid.String("ikeja-electric"),
+    UtilityType:     usesmileid.String("PrePaid"),
+    UserDetails:     userDetails,
+    Consent:         consent,
+})
+```
+
+### Smile Links
+
+Smile Links are hosted verification links you hand to end users. `Create` returns the link's URL and `RefID`. `Get` and `Update` take the `RefID`. `List` returns your links, newest first, each with its job outcome stats. `Update` changes a link's `IDTypes` and disables or re-enables it (`IsDisabled`); set at least one of the two.
+
+```go
+created, err := client.SmileLinks.Create(ctx, usesmileid.CreateSmileLinkParams{
+    IDTypes: []usesmileid.SmileLinkIDType{
+        {Country: "NG", IDType: "NIN", VerificationMethod: "enhanced_kyc"},
+    },
+    Name:                   "Onboarding",
+    NoticePrivacyPolicyURL: "https://example.com/privacy",
+    IsSingleUse:            true,
+})
+fmt.Println(created.Link, created.RefID)
+
+link, err := client.SmileLinks.Get(ctx, created.RefID)
+
+link, err = client.SmileLinks.Update(ctx, created.RefID, usesmileid.UpdateSmileLinkParams{
+    IsDisabled: usesmileid.Bool(true),
+})
+
+page, err := client.SmileLinks.List(ctx, usesmileid.ListSmileLinksParams{
+    Limit:     usesmileid.Ptr(20),
+    SingleUse: usesmileid.Bool(true),
+})
+for _, item := range page.Links {
+    fmt.Println(item.Name, item.TotalJobs)
+}
+```
+
+When `CallbackURL` is empty, `Create` sends the client's default callback URL, and with none the API uses your configured callback. `Create` and `Update` are not retried automatically. `Get` returns a `*NotFoundError` for an unknown link.
 
 ### Services
 

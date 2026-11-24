@@ -175,7 +175,12 @@ func BasicKYC(ctx context.Context, d Doer, p models.BasicKYCParams, out *models.
 // repeated submission would run and bill a second lookup.
 func BasicKYCSync(ctx context.Context, d Doer, p models.BasicKYCParams, out *models.BasicKYCResult) error {
 	r := &Request{Method: "POST", Path: "/v3/basic_kyc/sync", Authenticated: true, Product: "basic_kyc", BodyKind: BodyMultipart}
-	r.ResponseHeaders = map[string]*string{"SmileID-Job-ID": &out.JobID}
+	r.ResponseHeaders = map[string]*string{
+		"SmileID-Job-ID":     &out.JobID,
+		"User-ID":            &out.UserID,
+		"Response-Signature": &out.ResponseSignature,
+		"Response-Timestamp": &out.ResponseTimestamp,
+	}
 	buildBasicKYCParts(r, p)
 	return d.Do(ctx, r, out)
 }
@@ -451,7 +456,12 @@ func OneTimeAML(ctx context.Context, d Doer, p models.OneTimeAMLParams, out *mod
 // header is sent when set, and makes the call safe to retry.
 func OneTimeAMLSync(ctx context.Context, d Doer, p models.OneTimeAMLSyncParams, out *models.OneTimeAMLResult) error {
 	r := &Request{Method: "POST", Path: "/v3/aml/sync", Authenticated: true, Product: "one_time_aml", BodyKind: BodyMultipart}
-	r.ResponseHeaders = map[string]*string{"SmileID-Job-ID": &out.JobID}
+	r.ResponseHeaders = map[string]*string{
+		"SmileID-Job-ID":     &out.JobID,
+		"User-ID":            &out.UserID,
+		"Response-Signature": &out.ResponseSignature,
+		"Response-Timestamp": &out.ResponseTimestamp,
+	}
 	buildAMLParts(r, p.OneTimeAMLParams)
 	if p.IdempotencyKey != nil {
 		r.Headers = map[string]string{"SmileID-Idempotency-Key": *p.IdempotencyKey}
@@ -507,6 +517,141 @@ func AMLMonitoringNews(ctx context.Context, d Doer, jobID, reference string, p m
 	}
 	if p.Limit != nil {
 		r.Query.Set("limit", strconv.Itoa(*p.Limit))
+	}
+	return d.Do(ctx, r, out)
+}
+
+// PhoneVerification builds and sends POST /v3/phone. The user_id is a body field.
+func PhoneVerification(ctx context.Context, d Doer, p models.PhoneVerificationParams, out *models.AcceptedResponse) error {
+	r := &Request{Method: "POST", Path: "/v3/phone", Authenticated: true, Product: "phone_number_verification", BodyKind: BodyMultipart}
+	r.scalar("country", p.Country)
+	r.scalar("phone_number", p.PhoneNumber)
+	if p.Operator != nil {
+		r.scalar("operator", *p.Operator)
+	}
+	if p.IDNumber != nil {
+		r.scalar("id_number", *p.IDNumber)
+	}
+	r.jsonPart("user_details", p.UserDetails)
+	r.jsonPart("consent", p.Consent)
+	if p.UserID != nil {
+		r.scalar("user_id", *p.UserID)
+	}
+	if p.CallbackURL != nil {
+		r.scalar("callback_url", *p.CallbackURL)
+	}
+	addOptionalCommon(r, p.PartnerParams, p.Metadata)
+	return d.Do(ctx, r, out)
+}
+
+// AddressVerification builds and sends POST /v3/address. The user_id is a body field.
+func AddressVerification(ctx context.Context, d Doer, p models.AddressVerificationParams, out *models.AcceptedResponse) error {
+	r := &Request{Method: "POST", Path: "/v3/address", Authenticated: true, Product: "address_verification", BodyKind: BodyMultipart}
+	r.scalar("address", p.Address)
+	r.scalar("country", p.Country)
+	if p.IDNumber != nil {
+		r.scalar("id_number", *p.IDNumber)
+	}
+	if p.UtilityNumber != nil {
+		r.scalar("utility_number", *p.UtilityNumber)
+	}
+	if p.UtilityProvider != nil {
+		r.scalar("utility_provider", *p.UtilityProvider)
+	}
+	if p.UtilityType != nil {
+		r.scalar("utility_type", *p.UtilityType)
+	}
+	r.jsonPart("user_details", p.UserDetails)
+	r.jsonPart("consent", p.Consent)
+	if p.UserID != nil {
+		r.scalar("user_id", *p.UserID)
+	}
+	if p.CallbackURL != nil {
+		r.scalar("callback_url", *p.CallbackURL)
+	}
+	addOptionalCommon(r, p.PartnerParams, p.Metadata)
+	return d.Do(ctx, r, out)
+}
+
+// CreateSmileLink builds and sends POST /v3/smile_links. The token carries no
+// product claim. The call is not retried: a repeated submission would create
+// a second link.
+func CreateSmileLink(ctx context.Context, d Doer, p models.CreateSmileLinkParams, out *models.SmileLinkCreated) error {
+	r := &Request{Method: "POST", Path: "/v3/smile_links", Authenticated: true, BodyKind: BodyMultipart}
+	r.jsonPart("id_types", p.IDTypes)
+	r.scalar("name", p.Name)
+	if p.CompanyName != nil {
+		r.scalar("company_name", *p.CompanyName)
+	}
+	if p.Description != nil {
+		r.scalar("description", *p.Description)
+	}
+	r.scalar("notice_privacy_policy_url", p.NoticePrivacyPolicyURL)
+	r.scalar("is_single_use", boolStr(p.IsSingleUse))
+	if p.CallbackURL != nil {
+		r.scalar("callback_url", *p.CallbackURL)
+	}
+	if p.ExpiresAt != nil {
+		r.scalar("expires_at", *p.ExpiresAt)
+	}
+	if p.LogoURL != nil {
+		r.scalar("logo_url", *p.LogoURL)
+	}
+	if p.RedirectURL != nil {
+		r.scalar("redirect_url", *p.RedirectURL)
+	}
+	if p.ThemeColor != nil {
+		r.scalar("theme_color", *p.ThemeColor)
+	}
+	if p.PartnerParams != nil {
+		r.jsonPart("partner_params", p.PartnerParams)
+	}
+	if p.UserID != nil {
+		r.scalar("user_id", *p.UserID)
+	}
+	return d.Do(ctx, r, out)
+}
+
+// ListSmileLinks builds and sends GET /v3/smile_links.
+func ListSmileLinks(ctx context.Context, d Doer, p models.ListSmileLinksParams, out *models.SmileLinkListResponse) error {
+	r := &Request{Method: "GET", Path: "/v3/smile_links", Authenticated: true, Idempotent: true, Query: url.Values{}}
+	if p.Limit != nil {
+		r.Query.Set("limit", strconv.Itoa(*p.Limit))
+	}
+	if p.Page != nil {
+		r.Query.Set("page", strconv.Itoa(*p.Page))
+	}
+	if p.SingleUse != nil {
+		r.Query.Set("single_use", boolStr(*p.SingleUse))
+	}
+	return d.Do(ctx, r, out)
+}
+
+// GetSmileLink builds and sends GET /v3/smile_links/{refId}.
+func GetSmileLink(ctx context.Context, d Doer, refID string, out *models.SmileLink) error {
+	r := &Request{
+		Method:        "GET",
+		Path:          "/v3/smile_links/" + url.PathEscape(refID),
+		Authenticated: true,
+		Idempotent:    true,
+	}
+	return d.Do(ctx, r, out)
+}
+
+// UpdateSmileLink builds and sends PUT /v3/smile_links/{refId}. Only the
+// fields that are set are sent.
+func UpdateSmileLink(ctx context.Context, d Doer, refID string, p models.UpdateSmileLinkParams, out *models.SmileLink) error {
+	r := &Request{
+		Method:        "PUT",
+		Path:          "/v3/smile_links/" + url.PathEscape(refID),
+		Authenticated: true,
+		BodyKind:      BodyMultipart,
+	}
+	if p.IDTypes != nil {
+		r.jsonPart("id_types", p.IDTypes)
+	}
+	if p.IsDisabled != nil {
+		r.scalar("is_disabled", boolStr(*p.IsDisabled))
 	}
 	return d.Do(ctx, r, out)
 }
