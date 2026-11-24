@@ -123,6 +123,33 @@ if err != nil {
 fmt.Println(accepted.JobID, accepted.IsAccepted())
 ```
 
+### Enhanced KYC sync
+
+`VerifySync` runs the same Enhanced KYC verification as `Verify` and returns the result in the response instead of delivering it to your callback URL. The result is the payload the webhook would have carried.
+
+```go
+result, err := client.EnhancedKYC.VerifySync(ctx, usesmileid.EnhancedKYCParams{
+    Country:     "NG",
+    IDType:      "NIN",
+    IDNumber:    "12345678901",
+    UserDetails: userDetails,
+    Consent:     consent,
+})
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Println(result.JobID, result.Status)
+if result.Reason != nil {
+    fmt.Println(*result.Reason)
+}
+```
+
+`result.JobID` is the Smile job ID, from the `SmileID-Job-ID` response header, or from the body's `job_id` when the header is absent. `result.UserID` comes from the `User-ID` header or the body's `user_id` in the same way. `result.Raw` holds the whole response body, including the ID authority's data that has no typed field. The sync endpoint ignores `callback_url`, so `VerifySync` never sends the client's default callback URL.
+
+The result carries the response's `Response-Signature` and `Response-Timestamp` headers in `result.ResponseSignature` and `result.ResponseTimestamp`, so you can check them with your own webhook verification code. The SDK does not verify them.
+
+`VerifySync` is not retried. If the ID authority does not answer in time (408) or is unavailable (424), or the call fails after the job was created (500), the error's `JobID` names the recorded job. The job may still have run, and resubmitting runs and bills a second lookup, so don't resubmit. Read the outcome with `Verifications.Retrieve`, exactly as for Basic KYC sync below. A 500 with no `JobID` means the job wasn't created.
+
 ### Basic KYC
 
 Basic KYC checks the details you submit against the ID authority's record and reports a match verdict per field. It never returns the record itself. `Verify` returns an accepted job and delivers the result to your callback URL. `VerifySync` returns the result in the response.

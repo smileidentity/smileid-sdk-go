@@ -174,6 +174,41 @@ func TestEnhancedKYC(t *testing.T) {
 		want.Parts = []string{"country=NG", "id_type=NIN", "id_number=1", userDetailsJSON, consentJSON}
 		check(t, rec, err, out, want)
 	})
+
+	t.Run("sync", func(t *testing.T) {
+		rec, out := &recorder{}, &models.EnhancedKYCResult{}
+		err := EnhancedKYCSync(ctx, rec, models.EnhancedKYCParams{
+			Country: "NG", IDType: "BVN", IDNumber: "123", UserDetails: userDetails, Consent: consent,
+			CallbackURL: str("https://cb"), BankCode: str("058"), Operator: str("MTN"),
+			PartnerParams: partner, Metadata: metadata, UserID: str("u1"),
+		}, out)
+		if rec.req == nil {
+			t.Fatal("operation did not call Do")
+		}
+		headers := rec.req.ResponseHeaders
+		wantHeaders := map[string]*string{
+			"SmileID-Job-ID":     &out.JobID,
+			"User-ID":            &out.UserID,
+			"Response-Signature": &out.ResponseSignature,
+			"Response-Timestamp": &out.ResponseTimestamp,
+		}
+		if len(headers) != len(wantHeaders) {
+			t.Fatalf("response headers = %v", headers)
+		}
+		for name, field := range wantHeaders {
+			if headers[name] != field {
+				t.Errorf("response header %s is not copied into its result field", name)
+			}
+		}
+		rec.req.ResponseHeaders = nil
+		want := shape{Method: "POST", Path: "/v3/enhanced_kyc/sync", Authenticated: true, BodyKind: BodyMultipart, UserIDHeader: "u1"}
+		want.Parts = []string{"country=NG", "id_type=BVN", "id_number=123", userDetailsJSON, consentJSON,
+			"callback_url=https://cb", "bank_code=058", "operator=MTN", partnerJSON, metadataJSON}
+		check(t, rec, err, out, want)
+		if rec.req.Product != "enhanced_kyc" || rec.req.Idempotent {
+			t.Errorf("product = %q, idempotent = %v", rec.req.Product, rec.req.Idempotent)
+		}
+	})
 }
 
 func TestBasicKYC(t *testing.T) {

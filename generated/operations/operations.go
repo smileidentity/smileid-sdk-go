@@ -104,6 +104,28 @@ func addOptionalCommon(r *Request, partnerParams map[string]string, metadata []m
 // EnhancedKYC builds and sends POST /v3/enhanced_kyc.
 func EnhancedKYC(ctx context.Context, d Doer, p models.EnhancedKYCParams, out *models.AcceptedResponse) error {
 	r := &Request{Method: "POST", Path: "/v3/enhanced_kyc", Authenticated: true, Product: "enhanced_kyc", BodyKind: BodyMultipart}
+	buildEnhancedKYCParts(r, p)
+	return d.Do(ctx, r, out)
+}
+
+// EnhancedKYCSync builds and sends POST /v3/enhanced_kyc/sync. It is not
+// retried: a repeated submission would run and bill a second lookup. The
+// SmileID-Job-ID and User-ID headers override the body's job_id and user_id
+// when present, and the Response-Signature and Response-Timestamp headers are
+// copied into the result.
+func EnhancedKYCSync(ctx context.Context, d Doer, p models.EnhancedKYCParams, out *models.EnhancedKYCResult) error {
+	r := &Request{Method: "POST", Path: "/v3/enhanced_kyc/sync", Authenticated: true, Product: "enhanced_kyc", BodyKind: BodyMultipart}
+	r.ResponseHeaders = map[string]*string{
+		"SmileID-Job-ID":     &out.JobID,
+		"User-ID":            &out.UserID,
+		"Response-Signature": &out.ResponseSignature,
+		"Response-Timestamp": &out.ResponseTimestamp,
+	}
+	buildEnhancedKYCParts(r, p)
+	return d.Do(ctx, r, out)
+}
+
+func buildEnhancedKYCParts(r *Request, p models.EnhancedKYCParams) {
 	r.scalar("country", p.Country)
 	r.scalar("id_type", p.IDType)
 	r.scalar("id_number", p.IDNumber)
@@ -122,7 +144,6 @@ func EnhancedKYC(ctx context.Context, d Doer, p models.EnhancedKYCParams, out *m
 	if p.UserID != nil {
 		r.UserIDHeader = p.UserID
 	}
-	return d.Do(ctx, r, out)
 }
 
 func buildBasicKYCParts(r *Request, p models.BasicKYCParams) {
