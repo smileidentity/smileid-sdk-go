@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
 # Bump the SDK version and cut a changelog release.
 #
-# Usage: scripts/bump-version.sh <major|minor|patch>
+# Usage: scripts/bump-version.sh <major|minor|patch|X.Y.Z>
+#
+# Pass a part to bump it, or an exact X.Y.Z (plain digits, greater than the
+# current version) to jump straight to it, as the release train does when the
+# SDKs share a version and this one skipped a release.
 #
 # - Sets sdkVersion in transport.go (release.yml checks it against the tag).
 # - Moves the entries under "## [Unreleased]" in CHANGELOG.md to a new
 #   "## [x.y.z] - YYYY-MM-DD" heading and leaves an empty Unreleased section.
 # - Updates the example module's require line.
-# - On a major bump, moves the module path to the new /vN suffix in go.mod and
+# - When the major number goes up (a major bump, or an exact version with a
+#   higher major), moves the module path to the new /vN suffix in go.mod and
 #   every import, as Go modules require from v2 onwards.
 #
 # Prints the new version. Fails without changing anything if there is nothing
@@ -21,11 +26,15 @@ die() {
   exit 1
 }
 
-[ $# -eq 1 ] || die "usage: $0 <major|minor|patch>"
+[ $# -eq 1 ] || die "usage: $0 <major|minor|patch|X.Y.Z>"
 part=$1
+semver_re='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
 case "$part" in
   major | minor | patch) ;;
-  *) die "unknown part '$part' (expected major, minor or patch)" ;;
+  *)
+    [[ "$part" =~ $semver_re ]] ||
+      die "unknown part or version '$part' (expected major, minor, patch or X.Y.Z)"
+    ;;
 esac
 
 cd "$(dirname "$0")/.."
@@ -67,7 +76,17 @@ case "$part" in
   major) next="$((major + 1)).0.0" ;;
   minor) next="$major.$((minor + 1)).0" ;;
   patch) next="$major.$minor.$((patch + 1))" ;;
+  *)
+    next=$part
+    IFS=. read -r next_major next_minor next_patch <<<"$next"
+    if ((next_major < major ||
+      (next_major == major && next_minor < minor) ||
+      (next_major == major && next_minor == minor && next_patch <= patch))); then
+      die "version $next is not greater than the current version $current"
+    fi
+    ;;
 esac
+next_major=${next%%.*}
 grep -qE "^## \[${next//./\\.}\]" "$changelog" && die "$changelog already has a $next section"
 
 grep -qE "^require ${module//./\\.} v$current$" "$example_mod" ||
@@ -88,8 +107,7 @@ awk -v heading="## [$next] - $date" '
 cat "$tmp" >"$changelog"
 
 new_module=$module
-if [ "$part" = major ]; then
-  next_major=$((major + 1))
+if [ "$next_major" -gt "$major" ]; then
   if [ -n "$module_major" ]; then
     new_module="${module%/v*}/v$next_major"
   elif [ "$next_major" -ge 2 ]; then
