@@ -102,20 +102,23 @@ func check(t *testing.T, rec *recorder, err error, wantOut interface{}, want sha
 	}
 }
 
-// takeJobIDHeader checks that a sync operation asks for exactly the
-// SmileID-Job-ID response header, returns the field it is copied into, and
-// clears ResponseHeaders so describe can check the rest of the request.
-func takeJobIDHeader(t *testing.T, r *Request) *string {
+// takeResponseHeaders checks that an operation asks for exactly the want
+// response headers, each copied into the given result field, and clears
+// ResponseHeaders so describe can check the rest of the request.
+func takeResponseHeaders(t *testing.T, r *Request, want map[string]*string) {
 	t.Helper()
 	if r == nil {
 		t.Fatal("operation did not call Do")
 	}
-	field, ok := r.ResponseHeaders["SmileID-Job-ID"]
-	if !ok || len(r.ResponseHeaders) != 1 {
-		t.Fatalf("response headers = %v, want only SmileID-Job-ID", r.ResponseHeaders)
+	if len(r.ResponseHeaders) != len(want) {
+		t.Fatalf("response headers = %v, want %d headers", r.ResponseHeaders, len(want))
+	}
+	for name, field := range want {
+		if r.ResponseHeaders[name] != field {
+			t.Errorf("response header %s is not copied into its result field", name)
+		}
 	}
 	r.ResponseHeaders = nil
-	return field
 }
 
 func str(s string) *string                { return &s }
@@ -232,11 +235,11 @@ func TestBasicKYC(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		rec, out := &recorder{}, &models.BasicKYCResult{}
 		err := BasicKYCSync(ctx, rec, p, out)
-		jobIDField := takeJobIDHeader(t, rec.req)
+		takeResponseHeaders(t, rec.req, map[string]*string{
+			"SmileID-Job-ID": &out.JobID, "User-ID": &out.UserID,
+			"Response-Signature": &out.ResponseSignature, "Response-Timestamp": &out.ResponseTimestamp,
+		})
 		check(t, rec, err, out, shape{Method: "POST", Path: "/v3/basic_kyc/sync", Authenticated: true, BodyKind: BodyMultipart, Parts: parts})
-		if jobIDField != &out.JobID {
-			t.Error("SmileID-Job-ID must be copied into the result's JobID")
-		}
 		if rec.req.Product != "basic_kyc" || rec.req.Idempotent {
 			t.Errorf("product = %q, idempotent = %v", rec.req.Product, rec.req.Idempotent)
 		}
@@ -587,20 +590,21 @@ func TestOneTimeAMLSync(t *testing.T) {
 		if rec.out != out {
 			t.Error("out not passed to Do")
 		}
-		if takeJobIDHeader(t, rec.req) != &out.JobID {
-			t.Error("SmileID-Job-ID must be copied into the result's JobID")
-		}
+		takeResponseHeaders(t, rec.req, map[string]*string{
+			"SmileID-Job-ID": &out.JobID, "User-ID": &out.UserID,
+			"Response-Signature": &out.ResponseSignature, "Response-Timestamp": &out.ResponseTimestamp,
+		})
 	})
 
 	t.Run("without idempotency key", func(t *testing.T) {
 		rec, out := &recorder{}, &models.OneTimeAMLResult{}
 		err := OneTimeAMLSync(ctx, rec, models.OneTimeAMLSyncParams{OneTimeAMLParams: params}, out)
-		jobIDField := takeJobIDHeader(t, rec.req)
+		takeResponseHeaders(t, rec.req, map[string]*string{
+			"SmileID-Job-ID": &out.JobID, "User-ID": &out.UserID,
+			"Response-Signature": &out.ResponseSignature, "Response-Timestamp": &out.ResponseTimestamp,
+		})
 		want := shape{Method: "POST", Path: "/v3/aml/sync", Authenticated: true, BodyKind: BodyMultipart, Parts: parts}
 		check(t, rec, err, out, want)
-		if jobIDField != &out.JobID {
-			t.Error("SmileID-Job-ID must be copied into the result's JobID")
-		}
 	})
 }
 
@@ -653,5 +657,194 @@ func TestAMLMonitoringNews(t *testing.T) {
 			Method: "GET", Path: "/v3/aml/monitoring/j1/news/r1", Query: "news_category=other",
 			Authenticated: true, Idempotent: true,
 		})
+	})
+}
+
+func TestPhoneVerification(t *testing.T) {
+	base := shape{Method: "POST", Path: "/v3/phone", Authenticated: true, BodyKind: BodyMultipart}
+
+	t.Run("all fields", func(t *testing.T) {
+		rec, out := &recorder{}, &models.AcceptedResponse{}
+		err := PhoneVerification(ctx, rec, models.PhoneVerificationParams{
+			Country: "GH", PhoneNumber: "+233201234567", Operator: str("MTN"), IDNumber: str("GHA-1"),
+			Consent: consent, UserDetails: userDetails, UserID: str("u1"), CallbackURL: str("https://cb"),
+			PartnerParams: partner, Metadata: metadata,
+		}, out)
+		want := base
+		want.Parts = []string{"country=GH", "phone_number=+233201234567", "operator=MTN", "id_number=GHA-1",
+			userDetailsJSON, consentJSON, "user_id=u1", "callback_url=https://cb", partnerJSON, metadataJSON}
+		check(t, rec, err, out, want)
+		if rec.req.Product != "phone_number_verification" || rec.req.Idempotent {
+			t.Errorf("product = %q, idempotent = %v", rec.req.Product, rec.req.Idempotent)
+		}
+	})
+
+	t.Run("operator without id number", func(t *testing.T) {
+		rec, out := &recorder{}, &models.AcceptedResponse{}
+		err := PhoneVerification(ctx, rec, models.PhoneVerificationParams{
+			Country: "GH", PhoneNumber: "+233201234567", Operator: str("VODAFONE"), Consent: consent, UserDetails: userDetails,
+		}, out)
+		want := base
+		want.Parts = []string{"country=GH", "phone_number=+233201234567", "operator=VODAFONE", userDetailsJSON, consentJSON}
+		check(t, rec, err, out, want)
+	})
+
+	t.Run("id number without operator", func(t *testing.T) {
+		rec, out := &recorder{}, &models.AcceptedResponse{}
+		err := PhoneVerification(ctx, rec, models.PhoneVerificationParams{
+			Country: "KE", PhoneNumber: "+254712345678", IDNumber: str("12345678"), Consent: consent, UserDetails: userDetails,
+		}, out)
+		want := base
+		want.Parts = []string{"country=KE", "phone_number=+254712345678", "id_number=12345678", userDetailsJSON, consentJSON}
+		check(t, rec, err, out, want)
+	})
+
+	t.Run("required fields only", func(t *testing.T) {
+		rec, out := &recorder{}, &models.AcceptedResponse{}
+		err := PhoneVerification(ctx, rec, models.PhoneVerificationParams{
+			Country: "NG", PhoneNumber: "+2348012345678", Consent: consent, UserDetails: userDetails,
+		}, out)
+		want := base
+		want.Parts = []string{"country=NG", "phone_number=+2348012345678", userDetailsJSON, consentJSON}
+		check(t, rec, err, out, want)
+	})
+}
+
+func TestAddressVerification(t *testing.T) {
+	base := shape{Method: "POST", Path: "/v3/address", Authenticated: true, BodyKind: BodyMultipart}
+
+	t.Run("all fields", func(t *testing.T) {
+		rec, out := &recorder{}, &models.AcceptedResponse{}
+		err := AddressVerification(ctx, rec, models.AddressVerificationParams{
+			Address: "1 Marina Rd, Lagos", Country: "NG", IDNumber: str("1"), UtilityNumber: str("04123456789"),
+			UtilityProvider: str("ikeja-electric"), UtilityType: str("PrePaid"), Consent: consent,
+			UserDetails: userDetails, UserID: str("u1"), CallbackURL: str("https://cb"),
+			PartnerParams: partner, Metadata: metadata,
+		}, out)
+		want := base
+		want.Parts = []string{"address=1 Marina Rd, Lagos", "country=NG", "id_number=1", "utility_number=04123456789",
+			"utility_provider=ikeja-electric", "utility_type=PrePaid", userDetailsJSON, consentJSON,
+			"user_id=u1", "callback_url=https://cb", partnerJSON, metadataJSON}
+		check(t, rec, err, out, want)
+		if rec.req.Product != "address_verification" || rec.req.Idempotent {
+			t.Errorf("product = %q, idempotent = %v", rec.req.Product, rec.req.Idempotent)
+		}
+	})
+
+	t.Run("utility account without id number", func(t *testing.T) {
+		rec, out := &recorder{}, &models.AcceptedResponse{}
+		err := AddressVerification(ctx, rec, models.AddressVerificationParams{
+			Address: "3 Pier Rd", Country: "NG", UtilityNumber: str("04123456789"), UtilityProvider: str("eko-electric"),
+			UtilityType: str("PostPaid"), Consent: consent, UserDetails: userDetails,
+		}, out)
+		want := base
+		want.Parts = []string{"address=3 Pier Rd", "country=NG", "utility_number=04123456789",
+			"utility_provider=eko-electric", "utility_type=PostPaid", userDetailsJSON, consentJSON}
+		check(t, rec, err, out, want)
+	})
+
+	t.Run("required fields only", func(t *testing.T) {
+		rec, out := &recorder{}, &models.AcceptedResponse{}
+		err := AddressVerification(ctx, rec, models.AddressVerificationParams{
+			Address: "2 Main St", Country: "ZA", IDNumber: str("8001015009087"), Consent: consent, UserDetails: userDetails,
+		}, out)
+		want := base
+		want.Parts = []string{"address=2 Main St", "country=ZA", "id_number=8001015009087", userDetailsJSON, consentJSON}
+		check(t, rec, err, out, want)
+	})
+}
+
+var smileLinkTypes = []models.SmileLinkIDType{{Country: "NG", IDType: "NIN", VerificationMethod: "enhanced_kyc"}}
+
+const smileLinkTypesJSON = `id_types json=[{"country":"NG","id_type":"NIN","verification_method":"enhanced_kyc"}]`
+
+func TestCreateSmileLink(t *testing.T) {
+	base := shape{Method: "POST", Path: "/v3/smile_links", Authenticated: true, BodyKind: BodyMultipart}
+
+	t.Run("all fields", func(t *testing.T) {
+		rec, out := &recorder{}, &models.SmileLinkCreated{}
+		err := CreateSmileLink(ctx, rec, models.CreateSmileLinkParams{
+			IDTypes: smileLinkTypes, Name: "Onboarding", CompanyName: str("Acme"), Description: str("d"),
+			NoticePrivacyPolicyURL: "https://example.com/p", IsSingleUse: true, CallbackURL: str("https://cb"),
+			ExpiresAt: str("2027-01-01T00:00:00Z"), LogoURL: str("https://logo"), RedirectURL: str("https://redirect"),
+			ThemeColor: str("#0a0a0a"), PartnerParams: map[string]interface{}{"k": "v"}, UserID: str("u1"),
+		}, out)
+		want := base
+		want.Parts = []string{smileLinkTypesJSON, "name=Onboarding", "company_name=Acme", "description=d",
+			"notice_privacy_policy_url=https://example.com/p", "is_single_use=true", "callback_url=https://cb",
+			"expires_at=2027-01-01T00:00:00Z", "logo_url=https://logo", "redirect_url=https://redirect",
+			"theme_color=#0a0a0a", `partner_params json={"k":"v"}`, "user_id=u1"}
+		check(t, rec, err, out, want)
+		if rec.req.Product != "" || rec.req.Idempotent {
+			t.Errorf("product = %q, idempotent = %v", rec.req.Product, rec.req.Idempotent)
+		}
+	})
+
+	t.Run("required fields only", func(t *testing.T) {
+		rec, out := &recorder{}, &models.SmileLinkCreated{}
+		err := CreateSmileLink(ctx, rec, models.CreateSmileLinkParams{
+			IDTypes: smileLinkTypes, Name: "Onboarding", NoticePrivacyPolicyURL: "https://example.com/p",
+		}, out)
+		want := base
+		want.Parts = []string{smileLinkTypesJSON, "name=Onboarding", "notice_privacy_policy_url=https://example.com/p", "is_single_use=false"}
+		check(t, rec, err, out, want)
+	})
+}
+
+func TestListSmileLinks(t *testing.T) {
+	t.Run("all fields", func(t *testing.T) {
+		rec, out := &recorder{}, &models.SmileLinkListResponse{}
+		limit, page := 50, 2
+		err := ListSmileLinks(ctx, rec, models.ListSmileLinksParams{Limit: &limit, Page: &page, SingleUse: boolean(false)}, out)
+		check(t, rec, err, out, shape{Method: "GET", Path: "/v3/smile_links", Query: "limit=50&page=2&single_use=false", Authenticated: true, Idempotent: true})
+		if rec.req.Product != "" {
+			t.Errorf("product = %q", rec.req.Product)
+		}
+	})
+
+	t.Run("no fields", func(t *testing.T) {
+		rec, out := &recorder{}, &models.SmileLinkListResponse{}
+		err := ListSmileLinks(ctx, rec, models.ListSmileLinksParams{}, out)
+		check(t, rec, err, out, shape{Method: "GET", Path: "/v3/smile_links", Authenticated: true, Idempotent: true})
+	})
+}
+
+func TestGetSmileLink(t *testing.T) {
+	rec, out := &recorder{}, &models.SmileLink{}
+	err := GetSmileLink(ctx, rec, "a/b", out)
+	check(t, rec, err, out, shape{Method: "GET", Path: "/v3/smile_links/a%2Fb", Authenticated: true, Idempotent: true})
+	if rec.req.Product != "" {
+		t.Errorf("product = %q", rec.req.Product)
+	}
+}
+
+func TestUpdateSmileLink(t *testing.T) {
+	base := shape{Method: "PUT", Path: "/v3/smile_links/ref-1", Authenticated: true, BodyKind: BodyMultipart}
+
+	t.Run("all fields", func(t *testing.T) {
+		rec, out := &recorder{}, &models.SmileLink{}
+		err := UpdateSmileLink(ctx, rec, "ref-1", models.UpdateSmileLinkParams{IDTypes: smileLinkTypes, IsDisabled: boolean(true)}, out)
+		want := base
+		want.Parts = []string{smileLinkTypesJSON, "is_disabled=true"}
+		check(t, rec, err, out, want)
+		if rec.req.Product != "" || rec.req.Idempotent {
+			t.Errorf("product = %q, idempotent = %v", rec.req.Product, rec.req.Idempotent)
+		}
+	})
+
+	t.Run("id_types only", func(t *testing.T) {
+		rec, out := &recorder{}, &models.SmileLink{}
+		err := UpdateSmileLink(ctx, rec, "ref-1", models.UpdateSmileLinkParams{IDTypes: smileLinkTypes}, out)
+		want := base
+		want.Parts = []string{smileLinkTypesJSON}
+		check(t, rec, err, out, want)
+	})
+
+	t.Run("is_disabled only", func(t *testing.T) {
+		rec, out := &recorder{}, &models.SmileLink{}
+		err := UpdateSmileLink(ctx, rec, "ref-1", models.UpdateSmileLinkParams{IsDisabled: boolean(false)}, out)
+		want := base
+		want.Parts = []string{"is_disabled=false"}
+		check(t, rec, err, out, want)
 	})
 }

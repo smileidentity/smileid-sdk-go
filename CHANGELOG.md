@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Phone and address verification, matching API spec v3.1215.0:
+  - `Phone.Verify` submits a phone number verification (`POST /v3/phone`) with the new `PhoneVerificationParams`. The token carries the `phone_number_verification` product claim.
+  - `Address.Verify` submits an address verification (`POST /v3/address`) with the new `AddressVerificationParams`. The token carries the `address_verification` product claim.
+  - Both return an `AcceptedResponse` and deliver the result to the callback URL.
+- Smile Links, on the new `client.SmileLinks` resource: `Create` (`POST /v3/smile_links`), `List` (`GET /v3/smile_links`), `Get` (`GET /v3/smile_links/{refId}`) and `Update` (`PUT /v3/smile_links/{refId}`). New types: `CreateSmileLinkParams`, `UpdateSmileLinkParams`, `ListSmileLinksParams`, `SmileLinkIDType`, `SmileLinkCreated`, `SmileLink`, `SmileLinkListResponse` and the types they use. The tokens carry no product claim. `Create` and `Update` are not retried.
+- `UserID`, `ResponseSignature` and `ResponseTimestamp` on `BasicKYCResult` and `OneTimeAMLResult`, set from the `User-ID`, `Response-Signature` and `Response-Timestamp` headers of a `BasicKYC.VerifySync` or `AML.ScreenSync` response. The SDK does not verify the signature. They are empty on a callback payload.
+
 ## [13.2.0] - 2026-11-24
 
 ### Added

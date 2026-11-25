@@ -239,3 +239,77 @@ type AMLMonitoringNewsParams struct {
 	Page         *int
 	Limit        *int
 }
+
+// PhoneVerificationParams holds the request fields for phone number
+// verification (POST /v3/phone). Country is a two-letter code. PhoneNumber is
+// in E.164 format. Operator is required for Ghana ("MTN", "VODAFONE" or
+// "AIRTELTIGO") and ignored elsewhere. IDNumber is required for Kenya. UserID
+// is a body field.
+type PhoneVerificationParams struct {
+	Country       string
+	PhoneNumber   string
+	Operator      *string
+	IDNumber      *string
+	Consent       Consent
+	UserDetails   UserDetails
+	UserID        *string
+	CallbackURL   *string
+	PartnerParams map[string]string
+	Metadata      []MetadataEntry
+}
+
+// AddressVerificationParams holds the request fields for address verification
+// (POST /v3/address). Country is "NG" or "ZA". Provide IDNumber or
+// UtilityNumber: Nigeria requires UtilityNumber, UtilityProvider and
+// UtilityType ("PrePaid" or "PostPaid"), and South Africa requires IDNumber.
+// UserID is a body field.
+type AddressVerificationParams struct {
+	Address         string
+	Country         string
+	IDNumber        *string
+	UtilityNumber   *string
+	UtilityProvider *string
+	UtilityType     *string
+	Consent         Consent
+	UserDetails     UserDetails
+	UserID          *string
+	CallbackURL     *string
+	PartnerParams   map[string]string
+	Metadata        []MetadataEntry
+}
+
+// CreateSmileLinkParams holds the request fields for creating a Smile Link
+// (POST /v3/smile_links). IDTypes, Name, NoticePrivacyPolicyURL and
+// IsSingleUse are required. IDTypes is sent as a JSON-encoded array.
+type CreateSmileLinkParams struct {
+	IDTypes                []SmileLinkIDType
+	Name                   string
+	CompanyName            *string
+	Description            *string
+	NoticePrivacyPolicyURL string
+	IsSingleUse            bool
+	CallbackURL            *string
+	ExpiresAt              *string // RFC 3339 date-time
+	LogoURL                *string
+	RedirectURL            *string
+	ThemeColor             *string
+	PartnerParams          map[string]interface{}
+	UserID                 *string
+}
+
+// UpdateSmileLinkParams holds the fields for updating a Smile Link
+// (PUT /v3/smile_links/{refId}). At least one field must be set. IDTypes
+// replaces the link's current id_types.
+type UpdateSmileLinkParams struct {
+	IDTypes    []SmileLinkIDType
+	IsDisabled *bool
+}
+
+// ListSmileLinksParams holds the optional query for GET /v3/smile_links.
+// Limit defaults to 20 (maximum 100) and Page to 1 on the server. SingleUse
+// filters to single-use (true) or reusable (false) links.
+type ListSmileLinksParams struct {
+	Limit     *int
+	Page      *int
+	SingleUse *bool
+}

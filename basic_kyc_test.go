@@ -427,3 +427,38 @@ func TestBasicKYCTokensCarryTheSpecProduct(t *testing.T) {
 		})
 	}
 }
+
+// withSyncHeaders wraps a handler so every non-token response carries the
+// User-ID, Response-Signature and Response-Timestamp headers.
+func withSyncHeaders(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v3/token" {
+			w.Header().Set("User-ID", "user_hdr_01")
+			w.Header().Set("Response-Signature", "c2lnbmF0dXJl")
+			w.Header().Set("Response-Timestamp", "2026-03-10T12:00:04.000Z")
+		}
+		h(w, r)
+	}
+}
+
+func TestBasicKYCVerifySyncReturnsSignatureAndUserHeaders(t *testing.T) {
+	c := testClient(t, withSyncHeaders(captureHandler(&captured{}, http.StatusOK, basicKYCResultBody)))
+
+	res, err := c.BasicKYC.VerifySync(context.Background(), basicKYCParams())
+	if err != nil {
+		t.Fatalf("VerifySync: %v", err)
+	}
+	if res.UserID != "user_hdr_01" || res.ResponseSignature != "c2lnbmF0dXJl" || res.ResponseTimestamp != "2026-03-10T12:00:04.000Z" {
+		t.Errorf("UserID/signature/timestamp = %q %q %q", res.UserID, res.ResponseSignature, res.ResponseTimestamp)
+	}
+
+	// Without the headers the fields stay empty.
+	c = testClient(t, captureHandler(&captured{}, http.StatusOK, basicKYCResultBody))
+	res, err = c.BasicKYC.VerifySync(context.Background(), basicKYCParams())
+	if err != nil {
+		t.Fatalf("VerifySync: %v", err)
+	}
+	if res.UserID != "" || res.ResponseSignature != "" || res.ResponseTimestamp != "" {
+		t.Errorf("UserID/signature/timestamp = %q %q %q", res.UserID, res.ResponseSignature, res.ResponseTimestamp)
+	}
+}

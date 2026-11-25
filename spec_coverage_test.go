@@ -214,6 +214,24 @@ var operationCalls = map[string]func(context.Context, operations.Doer) error{
 	"AMLMonitoringNews": func(ctx context.Context, d operations.Doer) error {
 		return operations.AMLMonitoringNews(ctx, d, "{job_id}", "{reference}", AMLMonitoringNewsParams{}, &AMLMonitoringNewsResponse{})
 	},
+	"PhoneVerification": func(ctx context.Context, d operations.Doer) error {
+		return operations.PhoneVerification(ctx, d, PhoneVerificationParams{}, &AcceptedResponse{})
+	},
+	"AddressVerification": func(ctx context.Context, d operations.Doer) error {
+		return operations.AddressVerification(ctx, d, AddressVerificationParams{}, &AcceptedResponse{})
+	},
+	"CreateSmileLink": func(ctx context.Context, d operations.Doer) error {
+		return operations.CreateSmileLink(ctx, d, CreateSmileLinkParams{}, &SmileLinkCreated{})
+	},
+	"ListSmileLinks": func(ctx context.Context, d operations.Doer) error {
+		return operations.ListSmileLinks(ctx, d, ListSmileLinksParams{}, &SmileLinkListResponse{})
+	},
+	"GetSmileLink": func(ctx context.Context, d operations.Doer) error {
+		return operations.GetSmileLink(ctx, d, "{refId}", &SmileLink{})
+	},
+	"UpdateSmileLink": func(ctx context.Context, d operations.Doer) error {
+		return operations.UpdateSmileLink(ctx, d, "{refId}", UpdateSmileLinkParams{}, &SmileLink{})
+	},
 }
 
 // operationFuncs lists the exported functions in generated/operations that

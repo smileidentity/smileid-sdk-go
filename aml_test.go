@@ -606,3 +606,25 @@ func TestAMLTokensCarryTheSpecProduct(t *testing.T) {
 		})
 	}
 }
+
+func TestAMLScreenSyncReturnsSignatureAndUserHeaders(t *testing.T) {
+	c := testClient(t, withSyncHeaders(captureHandler(&captured{}, http.StatusOK, amlSyncBody)))
+
+	res, err := c.AML.ScreenSync(context.Background(), OneTimeAMLSyncParams{OneTimeAMLParams: oneTimeAMLParams()})
+	if err != nil {
+		t.Fatalf("ScreenSync: %v", err)
+	}
+	if res.UserID != "user_hdr_01" || res.ResponseSignature != "c2lnbmF0dXJl" || res.ResponseTimestamp != "2026-03-10T12:00:04.000Z" {
+		t.Errorf("UserID/signature/timestamp = %q %q %q", res.UserID, res.ResponseSignature, res.ResponseTimestamp)
+	}
+
+	// Without the headers the fields stay empty.
+	c = testClient(t, captureHandler(&captured{}, http.StatusOK, amlSyncBody))
+	res, err = c.AML.ScreenSync(context.Background(), OneTimeAMLSyncParams{OneTimeAMLParams: oneTimeAMLParams()})
+	if err != nil {
+		t.Fatalf("ScreenSync: %v", err)
+	}
+	if res.UserID != "" || res.ResponseSignature != "" || res.ResponseTimestamp != "" {
+		t.Errorf("UserID/signature/timestamp = %q %q %q", res.UserID, res.ResponseSignature, res.ResponseTimestamp)
+	}
+}

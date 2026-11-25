@@ -1,7 +1,10 @@
 {
   "spec_tag": "v3.1215.0",
   "operations": {
-    "createSmileLink": {"unsupported": "Planned for 13.3.0."},
+    "createSmileLink": {
+      "method": "Client.SmileLinks.Create",
+      "path": "POST /v3/smile_links"
+    },
     "getAmlMonitoringNews": {
       "method": "Client.AML.MonitoringNews",
       "path": "GET /v3/aml/monitoring/{job_id}/news/{reference}"
@@ -14,7 +17,10 @@
       "method": "Client.Services.IDStatus",
       "path": "GET /v3/services/id_status"
     },
-    "getSmileLink": {"unsupported": "Planned for 13.3.0."},
+    "getSmileLink": {
+      "method": "Client.SmileLinks.Get",
+      "path": "GET /v3/smile_links/{refId}"
+    },
     "getSupportedDocuments": {
       "method": "Client.Services.SupportedDocuments",
       "path": "GET /v3/services/supported_documents"
@@ -36,7 +42,10 @@
         "user_id": {"unsupported": "The SDK doesn't read the user_id header. JobStatus.UserID holds the body's user_id instead.", "backfill": false}
       }
     },
-    "listSmileLinks": {"unsupported": "Planned for 13.3.0."},
+    "listSmileLinks": {
+      "method": "Client.SmileLinks.List",
+      "path": "GET /v3/smile_links"
+    },
     "replayCallback": {
       "method": "Client.Verifications.Replay",
       "path": "POST /v3/replay/{job_id}"
@@ -57,10 +66,10 @@
       "method": "Client.BasicKYC.VerifySync",
       "path": "POST /v3/basic_kyc/sync",
       "response_headers": {
-        "Response-Signature": {"unsupported": "The SDK doesn't read the Response-Signature header for Basic KYC sync, and BasicKYCResult has no field for it."},
-        "Response-Timestamp": {"unsupported": "The SDK doesn't read the Response-Timestamp header for Basic KYC sync, and BasicKYCResult has no field for it."},
+        "Response-Signature": "BasicKYCResult.ResponseSignature",
+        "Response-Timestamp": "BasicKYCResult.ResponseTimestamp",
         "SmileID-Job-ID": "BasicKYCResult.JobID; Error.JobID on 408, 424 and 500 (*Error for 408 and 424, *APIError for 500)",
-        "User-ID": {"unsupported": "The SDK doesn't read the User-ID header for Basic KYC sync, and BasicKYCResult has no user ID field."}
+        "User-ID": "BasicKYCResult.UserID"
       }
     },
     "submitEnhancedKyc": {
@@ -85,14 +94,20 @@
       "method": "Client.AML.ScreenSync",
       "path": "POST /v3/aml/sync",
       "response_headers": {
-        "Response-Signature": {"unsupported": "The SDK doesn't read the Response-Signature header for One-Time AML sync, and OneTimeAMLResult has no field for it."},
-        "Response-Timestamp": {"unsupported": "The SDK doesn't read the Response-Timestamp header for One-Time AML sync, and OneTimeAMLResult has no field for it."},
+        "Response-Signature": "OneTimeAMLResult.ResponseSignature",
+        "Response-Timestamp": "OneTimeAMLResult.ResponseTimestamp",
         "SmileID-Job-ID": "OneTimeAMLResult.JobID; Error.JobID on 408 and 500 (*Error for 408, *APIError for 500)",
-        "User-ID": {"unsupported": "The SDK doesn't read the User-ID header for One-Time AML sync, and OneTimeAMLResult has no user ID field."}
+        "User-ID": "OneTimeAMLResult.UserID"
       }
     },
-    "updateSmileLink": {"unsupported": "Planned for 13.3.0."},
-    "v3AddressVerification": {"unsupported": "Planned for 13.3.0."},
+    "updateSmileLink": {
+      "method": "Client.SmileLinks.Update",
+      "path": "PUT /v3/smile_links/{refId}"
+    },
+    "v3AddressVerification": {
+      "method": "Client.Address.Verify",
+      "path": "POST /v3/address"
+    },
     "v3BiometricAuthentication": {
       "method": "Client.Biometric.Authenticate",
       "path": "POST /v3/authentication"
@@ -113,7 +128,10 @@
       "method": "Client.Documents.VerifyEnhanced",
       "path": "POST /v3/enhanced_document_verification"
     },
-    "v3PhoneVerification": {"unsupported": "Planned for 13.3.0."},
+    "v3PhoneVerification": {
+      "method": "Client.Phone.Verify",
+      "path": "POST /v3/phone"
+    },
     "v3ResidencyDocumentVerificationEntry": {
       "method": "Client.Documents.VerifyResidency",
       "path": "POST /v3/residency_document_verification"
