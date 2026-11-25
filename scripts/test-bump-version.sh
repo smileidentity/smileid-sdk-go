@@ -132,6 +132,49 @@ grep -q '^replace github.com/smileidentity/smileid-sdk-go/v13 => ../$' "$repo/ex
 grep -q 'ends in `/v13` because the module is at major version 13' "$repo/README.md" || fail "major: README not updated"
 grep -q 'Old entry for github.com/smileidentity/smileid-sdk-go/v12\.' "$repo/CHANGELOG.md" || fail "major: changelog history was rewritten"
 
+# --- exact version in the same major skips releases ---
+repo=$work/exact
+make_repo "$repo" 12.1.0 github.com/smileidentity/smileid-sdk-go/v12 "$entries"
+out=$(run_bump "$repo" 12.3.0) || fail "exact bump exited non-zero"
+[ "$out" = "12.3.0" ] || fail "exact bump printed '$out', want 12.3.0"
+grep -q 'sdkVersion = "12.3.0"' "$repo/transport.go" || fail "exact: transport.go not updated"
+grep -q '^require github.com/smileidentity/smileid-sdk-go/v12 v12.3.0$' "$repo/example/go.mod" || fail "exact: example/go.mod not updated"
+grep -q '^## \[12.3.0\] - 2026-11-09$' "$repo/CHANGELOG.md" || fail "exact: changelog heading missing"
+grep -q '^module github.com/smileidentity/smileid-sdk-go/v12$' "$repo/go.mod" || fail "exact: go.mod module path moved within a major"
+
+# --- exact version with a higher major moves the module path ---
+repo=$work/exact-major
+make_repo "$repo" 12.2.0 github.com/smileidentity/smileid-sdk-go/v12 "$entries"
+out=$(run_bump "$repo" 14.1.0) || fail "exact major bump exited non-zero"
+[ "$out" = "14.1.0" ] || fail "exact major bump printed '$out', want 14.1.0"
+grep -q 'sdkVersion = "14.1.0"' "$repo/transport.go" || fail "exact major: transport.go not updated"
+grep -q '^module github.com/smileidentity/smileid-sdk-go/v14$' "$repo/go.mod" || fail "exact major: go.mod module path not moved"
+grep -q '"github.com/smileidentity/smileid-sdk-go/v14/generated/operations"' "$repo/transport.go" || fail "exact major: root import not moved"
+grep -q '"github.com/smileidentity/smileid-sdk-go/v14/generated/models"' "$repo/generated/operations/operations.go" || fail "exact major: generated import not moved"
+grep -q '^require github.com/smileidentity/smileid-sdk-go/v14 v14.1.0$' "$repo/example/go.mod" || fail "exact major: example require not moved"
+grep -q '^replace github.com/smileidentity/smileid-sdk-go/v14 => ../$' "$repo/example/go.mod" || fail "exact major: example replace not moved"
+# shellcheck disable=SC2016 # literal backticks
+grep -q 'ends in `/v14` because the module is at major version 14' "$repo/README.md" || fail "exact major: README not updated"
+grep -q '^## \[14.1.0\] - 2026-11-09$' "$repo/CHANGELOG.md" || fail "exact major: changelog heading missing"
+grep -q 'Old entry for github.com/smileidentity/smileid-sdk-go/v12\.' "$repo/CHANGELOG.md" || fail "exact major: changelog history was rewritten"
+
+# --- exact versions that are not greater, or malformed, fail without changes ---
+repo=$work/exact-bad
+make_repo "$repo" 12.2.0 github.com/smileidentity/smileid-sdk-go/v12 "$entries"
+before=$(cd "$repo" && cat CHANGELOG.md transport.go go.mod example/go.mod README.md)
+for v in 12.2.0 12.1.9 11.9.9 v12.3.0 12.3 12.3.0.1 12.03.0 12.3.0-rc.1 ' 12.3.0' 12.3.x; do
+  if run_bump "$repo" "$v" 2>/dev/null; then
+    fail "exact bump to '$v' succeeded"
+  fi
+done
+[ "$(cd "$repo" && cat CHANGELOG.md transport.go go.mod example/go.mod README.md)" = "$before" ] ||
+  fail "exact-bad: a failed bump changed files"
+err=$(run_bump "$repo" 12.2.0 2>&1) || true
+case "$err" in
+  *"not greater than the current version 12.2.0"*) ;;
+  *) fail "exact-bad: unclear message for a version that is not greater: $err" ;;
+esac
+
 # --- bad input and bad shapes fail without changes ---
 repo=$work/bad
 make_repo "$repo" 12.2.0 github.com/smileidentity/smileid-sdk-go/v12 "$entries"
